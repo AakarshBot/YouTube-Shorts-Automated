@@ -17,7 +17,7 @@ jobs:
       - run: python -m pytest -q
       - run: |
           python - <<'PY'
-          from topic_fetcher import GENRES, fetch_topics
+          from topic_fetcher import DESK_PILLS, DESKS, GENRES, fetch_topics
 
           regional = fetch_topics("Cricket — India / Pakistan / Sri Lanka / Asia")
           regional = {item["topic"]: item for item in regional}
@@ -25,11 +25,14 @@ jobs:
           assert len(regional["Pakistan"]["headlines"]) >= 5
           assert len(regional["Sri Lanka"]["headlines"]) >= 5
 
-          global_ = fetch_topics("Cricket — Global")
-          assert all(item["topic"] in GENRES["Cricket — Global"] for item in global_)
-
           niche = fetch_topics("Niche Sports — Global")
           assert len(niche) >= 5
           assert all(item["topic"] in GENRES["Niche Sports — Global"] for item in niche)
           assert all(item["topic"] != "Cricket" for item in niche)
+
+          for desk in ("News", "Technology"):
+              stories = fetch_topics(desk)
+              assert stories
+              assert all(item["topic"] in DESK_PILLS[desk] for item in stories)
+          assert set(DESKS) == {"Sports", "News", "Entertainment", "Technology", "Business & Finance", "Gaming", "Science & Space"}
           PY

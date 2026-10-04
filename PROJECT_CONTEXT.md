@@ -4,129 +4,193 @@ Current source of truth. Read before every edit and replace this file completely
 
 ## Rules
 
-- Test first, Live second. Build and prove new functionality in Test, then reuse it in Live only after approval.
+- Test first, Live second. Build and approve new functionality in Test before Live.
 - No wrappers, adapters, compatibility layers, proxy functions or scaffolding. Delete and rewrite code directly when the current approach is wrong.
-- ranahaani/GNews is the approved Google News source. Use the maintained gnews package; do not copy its source or build a custom Google News client.
+- ranahaani/GNews is the approved Google News source. Use the maintained gnews package; do not copy its source or build another news client.
 - No new runtime dependencies.
 - AakarshBot/Final-Shorts is reference material only, not a code source.
 - English only for now. Language support comes later.
-- Final story selection is manual; CI success is not editorial approval.
+- Final story selection is manual. CI passing is technical validation, not editorial approval.
 
 ## Factory
 
-The factory will support multiple formats, including Deep-Dive, Top-5 and Did You Know. Deep-Dive is the format currently being built.
+Formats planned:
+- Deep-Dive
+- Top-5
+- Did You Know
+- Other formats later
 
-Seven production stages:
+Deep-Dive is the current format being built.
+
+Seven stages:
 Topic Fetcher → Scriptwriter → Audio → Subtitles → Visuals → Renderer → Upload.
 
-Live is disabled until Test functions are approved.
+Live remains disabled until Test functions are approved.
 
-## Deep-Dive desks
+## Deep-Dive
 
-Approved Deep-Dive desks:
-- Sports — implemented.
-- News — approved, not yet implemented.
-- Entertainment — approved, not yet implemented.
-- Technology — approved, not yet implemented.
-- Business & Finance — approved, not yet implemented.
-- Gaming — approved, not yet implemented.
-- Science & Space — approved, not yet implemented.
+Deep-Dive opens into these desks:
+- Sports
+- News
+- Entertainment
+- Technology
+- Business & Finance
+- Gaming
+- Science & Space
 
-Each desk will have its own appropriate top-level pills. Do not force every desk into the Sports country/sport structure.
+Sports is the completed desk. The other six desks now have initial Topic Fetcher coverage.
 
-## Sports — Topic Fetcher
+## Topic Fetcher
 
-Sports is the completed current desk and should be preserved while non-sports desks are added.
+The fetcher is pill-based. A desk exposes focused top-level pills and each pill expands directly into headline choices.
 
-### Regional Cricket
+### Sports
 
-Top-level pills are countries:
-- India: up to 20 headline pills.
-- Pakistan: target at least 5 headline pills.
-- Sri Lanka: target at least 5 headline pills.
-- Bangladesh and Afghanistan: include qualifying fresh headlines when available.
+Sports opens three Topic Fetcher choices:
+1. Cricket — India / Pakistan / Sri Lanka / Asia
+2. Cricket — Global
+3. Niche Sports — Global
 
-Each country pill expands directly into headline pills. Do not merge headlines into player/entity topic groups.
-
-The fetcher uses separate country settings for IN, PK, LK, BD and AF. Queries are explicitly cricket-focused, and a cricket-specific title filter prevents niche-sport stories from entering cricket.
-
-### Global Cricket
+#### Regional Cricket
 
 Top-level pills are countries:
-- Australia
-- England
-- South Africa
-- New Zealand
-- Ireland
-- Zimbabwe
+- India: up to 20 headlines
+- Pakistan: target at least 5
+- Sri Lanka: target at least 5
+- Bangladesh: include when fresh qualifying stories exist
+- Afghanistan: include when fresh qualifying stories exist
 
-Create a country pill only when it has at least one fresh qualifying headline within 24 hours. Do not manufacture country pills to reach a fixed count.
+Each country expands directly to headlines. No player/entity grouping.
 
-### Niche Sports
+Separate GNews country settings are used for IN, PK, LK, BD and AF. Cricket title filtering prevents non-cricket stories from entering these desks.
 
-Top-level pills are sports, not countries. Cricket is excluded.
+Regional Cricket prefers the newest 24 hours and may use a 72-hour fallback only when India/Pakistan/Sri Lanka is below target.
 
-Current coverage:
+#### Global Cricket
+
+Country pills:
+Australia, England, South Africa, New Zealand, Ireland and Zimbabwe.
+
+A country pill is created only when it has a fresh qualifying headline within 24 hours.
+
+#### Niche Sports
+
+Sport pills:
 Football, Tennis, Basketball, Athletics, Motorsport, Badminton, Hockey, Golf, Boxing, Wrestling, Swimming, Rugby, Volleyball, Cycling, Baseball and Table Tennis.
 
-Create a sport pill only when it has fresh qualifying headlines and expand directly into headline pills.
+Cricket is excluded. Only fresh qualifying stories create sport pills.
 
-### Filtering and freshness
+### News
 
-Remove schedules, fixtures, standings, scorecards, live-score pages, watch guides, predicted lineups, galleries, quizzes, odds, recaps, round-ups, tournament reviews and similar utility material.
+Four top-level pills:
+- India
+- World
+- Politics & Policy
+- Major Events
 
-Prefer fresh stories from the newest 24 hours.
+Queries are one fresh GNews search per pill, run concurrently. India-focused pills use IN; global pills use US localisation.
 
-Regional Cricket may use a 72-hour fallback only when India, Pakistan or Sri Lanka is below its target. Global Cricket and Niche Sports never create pills from stale-only results.
+### Entertainment
 
-Preserve title, URL, publisher and publication time.
+Four top-level pills:
+- Indian Film & OTT
+- Global Film & TV
+- Music
+- Celebrities
 
-### Runtime design
+One fresh GNews search per pill, run concurrently.
 
-The previous Sports fetcher made redundant searches and requested a 3-day pool for every query. The current version is deliberately smaller and faster without changing the editorial pill structure.
+### Technology
 
-- Regional Cricket uses one fresh 24-hour query per country, with a conditional 72-hour fallback only for India/Pakistan/Sri Lanka targets.
-- Global Cricket uses one fresh query per country.
-- Niche Sports uses one fresh query per sport.
-- GNews retrieval is bounded to 30 results per search instead of 100; final headline limits remain unchanged.
+Four top-level pills:
+- AI
+- Phones & Gadgets
+- Big Tech & Platforms
+- Startups & Innovation
+
+One fresh GNews search per pill, run concurrently.
+
+### Business & Finance
+
+Four top-level pills:
+- India Markets
+- Global Markets
+- Companies & Deals
+- Economy & Policy
+
+One fresh GNews search per pill, run concurrently.
+
+### Gaming
+
+Four top-level pills:
+- Games & Releases
+- Esports
+- Industry & Platforms
+- Hardware
+
+One fresh GNews search per pill, run concurrently.
+
+### Science & Space
+
+Four top-level pills:
+- Space
+- Science & Research
+- Environment & Climate
+- Major Discoveries
+
+One fresh GNews search per pill, run concurrently.
+
+## Common Topic Fetcher rules
+
+- Freshness target is the newest 24 hours for all desks except the documented Regional Cricket fallback.
+- Remove schedules, fixtures, standings, scorecards, watch guides, predicted lineups, galleries, photos, quizzes, odds, recaps, round-ups, reviews and similar utility material.
+- Preserve title, URL, publisher and publication time.
+- English only.
+- Final story selection is manual.
+- Search 20 more excludes URLs already shown and merges unseen headlines back into the existing pills.
+- First fetch uses up to 20 results per GNews search; Search 20 more can request up to 40 to expose unseen results.
 - At most 8 GNews requests run concurrently.
-- GNews retries 429 rate-limit responses once, rather than using the default multi-retry backoff.
-- No alternative news client, cache layer or runtime dependency is introduced.
-- Search 20 more reuses the same fetcher, excludes already seen URLs and merges new headlines into the existing country/sport pills.
+- GNews retries rate-limit responses once.
+- No cache, alternate news service or extra runtime dependency is used.
 
 ## Test dashboard
 
-app.py currently provides:
-Homepage → Test → Deep-Dive → Sports → Topic Fetcher.
+Flow:
+Homepage → Test → Deep-Dive → Desk → Topic Fetcher.
 
-The Topic Fetcher screen starts with Fetch stories. After results load it shows Search 20 more.
+Sports:
+Deep-Dive → Sports → Cricket / Global Cricket / Niche Sports → Topic Fetcher.
 
-The dashboard uses a light/warm theme with readable button states and compact headline cards.
+Non-Sports:
+Deep-Dive → News / Entertainment / Technology / Business & Finance / Gaming / Science & Space → Topic Fetcher.
+
+The Topic Fetcher screen starts with Fetch stories and then shows Search 20 more.
+
+The dashboard remains light/warm with readable buttons and compact headline cards.
 
 ## Tests and CI
 
 tests/test_topic_fetcher.py checks:
-- the three current Sports desks,
-- regional country structure,
-- cricket-specific query design,
-- non-cricket sports breadth.
+- Deep-Dive desk list
+- Sports option preservation
+- non-Sports pill structure
+- cricket query design
+- niche sports breadth
 
 .github/workflows/test.yml:
-- installs runtime dependencies plus pytest,
-- runs pytest,
-- performs a real Topic Fetcher smoke test,
-- requires India/Pakistan/Sri Lanka regional pills,
-- requires at least 5 Pakistan headlines and 5 Sri Lanka headlines,
-- allows variable Global Cricket country-pill count,
-- requires multiple Niche Sports pills and no Cricket pill.
+- installs runtime dependencies plus pytest
+- runs the unit tests
+- performs real fetch checks for Regional Cricket and Niche Sports
+- performs representative real fetch checks for News and Technology
+- verifies returned pills belong to the configured desk structures
 
-CI verifies technical behaviour only. Current real stories still require manual QC.
+CI is technical validation only. Stories still require manual QC.
 
 ## Current files
 
-- PROJECT_CONTEXT.md — current project rules and state
-- topic_fetcher.py — Sports Topic Fetcher
+- PROJECT_CONTEXT.md — complete current project state and rules
+- topic_fetcher.py — Topic Fetcher
 - app.py — Test dashboard
 - tests/test_topic_fetcher.py — focused tests
-- .github/workflows/test.yml — CI and real-fetch smoke test
+- .github/workflows/test.yml — CI and real-fetch smoke tests
 - requirements.txt — runtime dependencies

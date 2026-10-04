@@ -1,5 +1,5 @@
 import streamlit as st
-from topic_fetcher import GENRES, fetch_topics
+from topic_fetcher import DESKS, GENRES, fetch_topics
 
 st.set_page_config(page_title="YouTube Shorts Automated", page_icon="▶", layout="wide")
 
@@ -24,15 +24,17 @@ div.stButton>button:disabled{background:#efede8;color:#8a877f;border-color:#ddd9
 """, unsafe_allow_html=True)
 
 st.session_state.setdefault("page", "home")
+st.session_state.setdefault("desk", None)
 st.session_state.setdefault("genre", None)
 st.session_state.setdefault("topics", [])
 st.session_state.setdefault("seen_urls", set())
 
-def go(page, genre=None):
-    st.session_state.page, st.session_state.genre = page, genre
-    if page != "topics":
-        st.session_state.topics = []
-        st.session_state.seen_urls = set()
+def go(page, desk=None, genre=None):
+    st.session_state.page = page
+    st.session_state.desk = desk
+    st.session_state.genre = genre
+    st.session_state.topics = []
+    st.session_state.seen_urls = set()
     st.rerun()
 
 if st.session_state.page == "home":
@@ -53,18 +55,28 @@ elif st.session_state.page == "formats":
     st.button("← Home", on_click=go, args=("home",))
     st.title("Choose a format")
     if st.button("Deep-Dive", type="primary", use_container_width=True):
-        go("sports")
+        go("deep-dive")
     st.caption("More formats — Top-5, Did You Know and others — will be added later.")
 
-elif st.session_state.page == "sports":
+elif st.session_state.page == "deep-dive":
     st.button("← Formats", on_click=go, args=("formats",))
-    st.title("Choose a genre")
-    for genre in GENRES:
+    st.title("Deep-Dive")
+    for desk in DESKS:
+        if st.button(desk, use_container_width=True):
+            if desk == "Sports":
+                go("sports", desk)
+            else:
+                go("topics", desk=desk, genre=desk)
+
+elif st.session_state.page == "sports":
+    st.button("← Deep-Dive", on_click=go, args=("deep-dive",))
+    st.title("Sports")
+    for genre in DESKS["Sports"]:
         if st.button(genre, use_container_width=True):
-            go("topics", genre)
+            go("topics", desk="Sports", genre=genre)
 
 else:
-    st.button("← Genres", on_click=go, args=("sports",))
+    st.button("← " + st.session_state.desk, on_click=go, args=("deep-dive",))
     st.title(st.session_state.genre)
     st.markdown('<div class="stage"><span class="active">01 Topic Fetcher</span><span>02 Scriptwriter</span><span>03 Audio</span><span>04 Subtitles</span><span>05 Visuals</span><span>06 Renderer</span><span>07 Upload</span></div>', unsafe_allow_html=True)
 
@@ -74,13 +86,12 @@ else:
             with st.spinner("Finding current stories…"):
                 st.session_state.topics = fetch_topics(st.session_state.genre)
             st.session_state.seen_urls = {
-                headline["url"]
-                for item in st.session_state.topics
-                for headline in item["headlines"]
+                h["url"] for item in st.session_state.topics for h in item["headlines"]
             }
         topics = st.session_state.topics
 
     if topics:
+        pill = "country" if st.session_state.genre in GENRES else "topic"
         if st.button("Search 20 more", type="primary", use_container_width=True):
             with st.spinner("Searching for more stories…"):
                 more = fetch_topics(st.session_state.genre, exclude_urls=st.session_state.seen_urls)
@@ -92,16 +103,14 @@ else:
                     topics.append(item)
             st.session_state.topics = topics
             st.session_state.seen_urls.update(
-                headline["url"]
-                for item in more
-                for headline in item["headlines"]
+                h["url"] for item in more for h in item["headlines"]
             )
 
-        st.caption(f"{len(topics)} {('country' if 'Cricket' in st.session_state.genre else 'sport')} pills")
+        st.caption(f"{len(topics)} {pill} pills")
         for item in topics:
             with st.expander(f"{item['topic']} · {len(item['headlines'])} headlines"):
                 for h in item["headlines"]:
                     st.markdown(f'<div class="headline">{h["title"]}</div>', unsafe_allow_html=True)
                     st.markdown(f"<div class='meta'>{h['publisher']} · {h['published_at'][:16].replace('T',' ')} · <a href='{h['url']}' target='_blank'>Source</a></div>", unsafe_allow_html=True)
     else:
-        st.info("Run Topic Fetcher to load current stories.")
+        st.info("No fresh qualifying stories found.")
