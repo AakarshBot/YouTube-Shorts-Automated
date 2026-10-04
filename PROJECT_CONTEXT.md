@@ -12,6 +12,7 @@ Current source of truth. Read before every edit and rewrite after every change; 
 ## Current factory
 
 Seven stages: Topic Fetcher → Scriptwriter → Audio → Subtitles → Visuals → Renderer → Upload.
+
 Current Test line: Deep-Dive → Sports.
 Current desks: Cricket — India / Pakistan / Sri Lanka / Asia; Cricket — Global; Niche Sports — Global.
 Live is disabled until Test functions are approved.
@@ -45,7 +46,8 @@ Implementation:
 The Topic Fetcher screen has `Fetch 20 stories` for the first batch and `Find 20 more` after results appear.
 `Find 20 more` keeps session-level topic/URL exclusions, replaces the visible batch with the new results, and accumulates exclusions so repeated searches do not immediately recycle prior choices.
 
-UI target: light/warm, readable, compact, minimal CSS and straightforward Streamlit.
+UI target: light/warm, readable, compact, minimal CSS, straightforward Streamlit.
+Buttons must use explicit light backgrounds and dark readable text in normal, hover, primary and disabled states; do not rely on Streamlit's default dark button styling.
 
 ## Tests and CI
 

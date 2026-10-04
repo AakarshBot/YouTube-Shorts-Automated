@@ -14,7 +14,11 @@ h1{font-size:2.5rem;letter-spacing:-.04em}
 .stage span{border:1px solid var(--line);padding:8px 12px;border-radius:999px;background:var(--card);font-size:.82rem}
 .stage .active{background:var(--ink);color:white;border-color:var(--ink)}
 .meta{color:var(--muted);font-size:.78rem;margin-top:5px}
-.stButton button{border-radius:999px}
+div.stButton>button{background:#fffdf8;color:#171915;border:1px solid #cfcabe;border-radius:999px;box-shadow:none}
+div.stButton>button:hover{background:#f0ede5;color:#171915;border-color:#aaa599}
+div.stButton>button[kind="primary"]{background:#e8e3d8;color:#171915;border-color:#bdb6a8}
+div.stButton>button[kind="primary"]:hover{background:#ddd7ca;color:#171915}
+div.stButton>button:disabled{background:#efede8;color:#8a877f;border-color:#ddd9d0;opacity:1}
 </style>
 """, unsafe_allow_html=True)
 
