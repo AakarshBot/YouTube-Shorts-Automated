@@ -28,6 +28,16 @@ def test_sports_and_niche_structure():
     assert "Cricket" not in GENRES[niche]
     assert len(GENRES[niche]) >= 15
 
-def test_cricket_queries_are_cricket_specific():
-    for desk in ("Cricket — India / Pakistan / Sri Lanka / Asia", "Cricket — Global"):
-        assert all('"cricket"' in query.lower() for sources in GENRES[desk].values() for _, query in sources)
+def test_cricket_queries_target_specific_story_signals():
+    regional = GENRES["Cricket — India / Pakistan / Sri Lanka / Asia"]
+    query = regional["India"][0][1].lower()
+    assert '"india cricket"' in query
+    assert "bcci" in query
+    assert '"records & stats"' in query
+    assert "-scorecard" in query
+
+def test_cricket_page_filter_rejects_reference_pages():
+    from topic_fetcher import BAD
+    assert BAD.search("NKP Salve Challenger Trophy, 2008/09 Cricket Team Records & Stats")
+    assert BAD.search("Cricket Grounds | Afro Asia Cup, 2005")
+    assert not BAD.search("West Indies beat India in record chase as Hope hits 162")

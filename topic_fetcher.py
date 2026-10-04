@@ -7,19 +7,63 @@ from gnews import GNews
 
 GENRES = {
     "Cricket — India / Pakistan / Sri Lanka / Asia": {
-        "India": [("IN", '"cricket" India when:1d')],
-        "Pakistan": [("PK", '"cricket" Pakistan when:1d')],
-        "Sri Lanka": [("LK", '"cricket" Sri Lanka when:1d')],
-        "Bangladesh": [("BD", '"cricket" Bangladesh when:1d')],
-        "Afghanistan": [("AF", '"cricket" Afghanistan when:1d')],
+        "India": [(
+            "IN",
+            '("India cricket" OR BCCI OR Kohli OR Rohit OR Gill OR Bumrah OR Pant OR Rahul OR Jadeja OR Jaiswal OR "India T20" OR "India ODI" OR "India Test") when:1d '
+            '-"records & stats" -"team records" -"career stats" -scorecard -fixtures -fixture -schedule -rankings -archive -gallery -quiz -odds -"cricket grounds"'
+        )],
+        "Pakistan": [(
+            "PK",
+            '("Pakistan cricket" OR PCB OR Babar OR Shaheen OR Rizwan OR Naseem OR "Pakistan T20" OR "Pakistan ODI" OR "Pakistan Test") when:1d '
+            '-"records & stats" -"team records" -"career stats" -scorecard -fixtures -fixture -schedule -rankings -archive -gallery -quiz -odds -"cricket grounds"'
+        )],
+        "Sri Lanka": [(
+            "LK",
+            '("Sri Lanka cricket" OR SLC OR Hasaranga OR Mendis OR Nissanka OR Mathews OR "Sri Lanka T20" OR "Sri Lanka ODI" OR "Sri Lanka Test") when:1d '
+            '-"records & stats" -"team records" -"career stats" -scorecard -fixtures -fixture -schedule -rankings -archive -gallery -quiz -odds -"cricket grounds"'
+        )],
+        "Bangladesh": [(
+            "BD",
+            '("Bangladesh cricket" OR BCB OR Shanto OR Mushfiqur OR Mahmudullah OR "Bangladesh T20" OR "Bangladesh ODI" OR "Bangladesh Test") when:1d '
+            '-"records & stats" -"team records" -"career stats" -scorecard -fixtures -fixture -schedule -rankings -archive -gallery -quiz -odds -"cricket grounds"'
+        )],
+        "Afghanistan": [(
+            "AF",
+            '("Afghanistan cricket" OR ACB OR Rashid OR Nabi OR Gurbaz OR "Afghanistan T20" OR "Afghanistan ODI" OR "Afghanistan Test") when:1d '
+            '-"records & stats" -"team records" -"career stats" -scorecard -fixtures -fixture -schedule -rankings -archive -gallery -quiz -odds -"cricket grounds"'
+        )],
     },
     "Cricket — Global": {
-        "Australia": [("AU", '"cricket" Australia when:1d')],
-        "England": [("GB", '"cricket" England when:1d')],
-        "South Africa": [("ZA", '"cricket" South Africa when:1d')],
-        "New Zealand": [("NZ", '"cricket" New Zealand when:1d')],
-        "Ireland": [("IE", '"cricket" Ireland when:1d')],
-        "Zimbabwe": [("ZW", '"cricket" Zimbabwe when:1d')],
+        "Australia": [(
+            "AU",
+            '("Australia cricket" OR Cricket Australia OR Cummins OR Smith OR Starc OR Head OR "Australia T20" OR "Australia ODI" OR "Australia Test") when:1d '
+            '-"records & stats" -"team records" -"career stats" -scorecard -fixtures -fixture -schedule -rankings -archive -gallery -quiz -odds -"cricket grounds"'
+        )],
+        "England": [(
+            "GB",
+            '("England cricket" OR ECB OR Stokes OR Root OR Brook OR Buttler OR "England T20" OR "England ODI" OR "England Test") when:1d '
+            '-"records & stats" -"team records" -"career stats" -scorecard -fixtures -fixture -schedule -rankings -archive -gallery -quiz -odds -"cricket grounds"'
+        )],
+        "South Africa": [(
+            "ZA",
+            '("South Africa cricket" OR CSA OR Bavuma OR Rabada OR Markram OR de Kock OR "South Africa T20" OR "South Africa ODI" OR "South Africa Test") when:1d '
+            '-"records & stats" -"team records" -"career stats" -scorecard -fixtures -fixture -schedule -rankings -archive -gallery -quiz -odds -"cricket grounds"'
+        )],
+        "New Zealand": [(
+            "NZ",
+            '("New Zealand cricket" OR NZC OR Williamson OR Mitchell OR Conway OR Southee OR "New Zealand T20" OR "New Zealand ODI" OR "New Zealand Test") when:1d '
+            '-"records & stats" -"team records" -"career stats" -scorecard -fixtures -fixture -schedule -rankings -archive -gallery -quiz -odds -"cricket grounds"'
+        )],
+        "Ireland": [(
+            "IE",
+            '("Ireland cricket" OR Cricket Ireland OR Balbirnie OR Stirling OR "Ireland T20" OR "Ireland ODI" OR "Ireland Test") when:1d '
+            '-"records & stats" -"team records" -"career stats" -scorecard -fixtures -fixture -schedule -rankings -archive -gallery -quiz -odds -"cricket grounds"'
+        )],
+        "Zimbabwe": [(
+            "ZW",
+            '("Zimbabwe cricket" OR Zimbabwe Cricket OR Raza OR Ervine OR Williams OR "Zimbabwe T20" OR "Zimbabwe ODI" OR "Zimbabwe Test") when:1d '
+            '-"records & stats" -"team records" -"career stats" -scorecard -fixtures -fixture -schedule -rankings -archive -gallery -quiz -odds -"cricket grounds"'
+        )],
     },
     "Niche Sports — Global": {
         "Football": [("GB", "football soccer Premier League Champions League when:1d")],
@@ -93,7 +137,8 @@ DESKS = {
 BAD = re.compile(
     r"\b(schedule|fixtures?|standings?|scorecard|live score|how to watch|where to watch|"
     r"predicted xi|predicted lineups?|photo gallery|photos?|quiz|odds|recap|round[- ]up|"
-    r"tournament review|what we learned|live updates?|live blog|horoscope|review)\b",
+    r"tournament review|what we learned|live updates?|live blog|horoscope)\b|"
+    r'"records? & stats"|"team records"|"career stats"|\bcricket grounds\b',
     re.I,
 )
 

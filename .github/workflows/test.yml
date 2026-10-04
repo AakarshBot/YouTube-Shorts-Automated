@@ -25,6 +25,10 @@ jobs:
           assert len(regional["Pakistan"]["headlines"]) >= 5
           assert len(regional["Sri Lanka"]["headlines"]) >= 5
 
+          print("\nIndia cricket stories returned:")
+          for headline in regional["India"]["headlines"]:
+              print(f"- {headline['title']} | {headline['publisher']} | {headline['published_at']}")
+
           niche = fetch_topics("Niche Sports — Global")
           assert len(niche) >= 5
           assert all(item["topic"] in GENRES["Niche Sports — Global"] for item in niche)
@@ -34,5 +38,6 @@ jobs:
               stories = fetch_topics(desk)
               assert stories
               assert all(item["topic"] in DESK_PILLS[desk] for item in stories)
+
           assert set(DESKS) == {"Sports", "News", "Entertainment", "Technology", "Business & Finance", "Gaming", "Science & Space"}
           PY
