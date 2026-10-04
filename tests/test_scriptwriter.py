@@ -71,3 +71,98 @@ def test_duplicate_slides_are_rejected():
 def test_missing_approved_title_is_rejected():
     result = script()
     assert validate_script(result, "") == ["Approved title is missing."]
+
+
+class _Response:
+    def __init__(self, text):
+        self.text = text.encode()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self, size=-1):
+        return self.text
+
+
+def test_source_article_is_used_when_reachable(monkeypatch):
+    import scriptwriter
+
+    def fake_urlopen(req, timeout=12):
+        return _Response("<html><article>" + ("Important article fact. " * 30) + "</article></html>")
+
+    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
+    text = scriptwriter.article_text({
+        "title": "Story",
+        "url": "https://example.com/story",
+        "description": "Short summary.",
+    })
+    assert text.startswith("Important article fact.")
+
+
+def test_gnews_summary_is_used_when_source_returns_400(monkeypatch):
+    import scriptwriter
+
+    def fake_urlopen(req, timeout=12):
+        from urllib.error import HTTPError
+        raise HTTPError(req.full_url, 400, "Bad Request", {}, None)
+
+    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
+    text = scriptwriter.article_text({
+        "title": "Story headline",
+        "url": "https://example.com/story",
+        "description": "This is the factual GNews summary for the selected story.",
+    })
+    assert text == "Story headline. This is the factual GNews summary for the selected story."
+
+
+def test_source_without_article_element_can_still_be_used(monkeypatch):
+    import scriptwriter
+
+    def fake_urlopen(req, timeout=12):
+        return _Response("<html><body>" + ("Important article fact. " * 30) + "</body></html>")
+
+    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
+    text = scriptwriter.article_text({
+        "title": "Story",
+        "url": "https://example.com/story",
+        "description": "Short summary.",
+    })
+    assert len(text) >= 300
+
+
+def test_source_without_readable_content_uses_gnews_summary(monkeypatch):
+    import scriptwriter
+
+    def fake_urlopen(req, timeout=12):
+        return _Response("<html><head></head><body>Blocked</body></html>")
+
+    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
+    text = scriptwriter.article_text({
+        "title": "Story headline",
+        "url": "https://example.com/story",
+        "description": "A useful factual summary with enough information for the writer.",
+    })
+    assert text == "Story headline. A useful factual summary with enough information for the writer."
+
+
+def test_source_requires_evidence(monkeypatch):
+    import scriptwriter
+
+    def fake_urlopen(req, timeout=12):
+        from urllib.error import HTTPError
+        raise HTTPError(req.full_url, 403, "Forbidden", {}, None)
+
+    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
+    try:
+        scriptwriter.article_text({
+            "title": "Story headline",
+            "url": "https://example.com/story",
+            "description": "",
+        })
+    except RuntimeError as exc:
+        assert str(exc) == "The selected story has no readable source evidence."
+    else:
+        raise AssertionError("Expected missing-evidence error")
