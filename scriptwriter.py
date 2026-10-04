@@ -4,10 +4,14 @@ import os
 import re
 from html.parser import HTMLParser
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
+
+from gnews import GNews
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+MAX_WORDS = 65
 
 if not os.getenv("GROQ_API_KEY"):
     path = os.path.join(os.path.dirname(__file__), ".env")
@@ -22,6 +26,8 @@ if not os.getenv("GROQ_API_KEY"):
 OUTPUT_SCHEMA = {
     "type": "object",
     "properties": {
+        "status": {"type": "string", "enum": ["ready", "needs_more_sources"]},
+        "reason": {"type": "string"},
         "opening_headline": {"type": "string"},
         "slides": {
             "type": "array",
@@ -35,17 +41,17 @@ OUTPUT_SCHEMA = {
         "titles": {
             "type": "array",
             "items": {"type": "string"},
-            "minItems": 2,
         },
         "description": {"type": "string"},
         "hashtags": {
             "type": "array",
             "items": {"type": "string"},
-            "minItems": 1,
         },
         "first_comment": {"type": "string"},
     },
     "required": [
+        "status",
+        "reason",
         "opening_headline",
         "slides",
         "titles",
@@ -76,39 +82,95 @@ class _Text(HTMLParser):
             self.parts.append(data)
 
 
+def _clean(value):
+    return re.sub(r"\s+", " ", html.unescape(str(value or ""))).strip()
+
+
+def _valid_url(value):
+    parsed = urlparse(str(value or ""))
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
 def article_text(story):
     if not story or not story.get("url"):
         raise ValueError("Selected story has no source URL.")
 
-    try:
-        req = Request(story["url"], headers={"User-Agent": "Mozilla/5.0"})
-        with urlopen(req, timeout=12) as response:
-            raw = response.read(300000).decode("utf-8", "ignore")
-        article = re.search(r"<article\b.*?</article>", raw, flags=re.I | re.S)
-        parser = _Text()
-        parser.feed(
-            re.sub(
-                r"<head.*?</head>",
-                " ",
-                article.group(0) if article else raw,
-                flags=re.I | re.S,
+    if _valid_url(story["url"]):
+        try:
+            req = Request(story["url"], headers={"User-Agent": "Mozilla/5.0"})
+            with urlopen(req, timeout=12) as response:
+                raw = response.read(300000).decode("utf-8", "ignore")
+            article = re.search(r"<article\b.*?</article>", raw, flags=re.I | re.S)
+            parser = _Text()
+            parser.feed(
+                re.sub(
+                    r"<head.*?</head>",
+                    " ",
+                    article.group(0) if article else raw,
+                    flags=re.I | re.S,
+                )
             )
-        )
-        text = re.sub(r"\s+", " ", html.unescape(" ".join(parser.parts))).strip()
-        if len(text) >= 300:
-            return text[:20000]
-    except (HTTPError, URLError, TimeoutError, ValueError):
-        pass
+            text = _clean(" ".join(parser.parts))
+            if len(text) >= 300:
+                return text[:20000]
+        except (HTTPError, URLError, TimeoutError, ValueError):
+            pass
 
-    summary = re.sub(
-        r"\s+", " ", html.unescape(str(story.get("description") or ""))
-    ).strip()
+    summary = _clean(story.get("description"))
     if summary:
-        return f'{story["title"]}. {summary}'
-    raise RuntimeError("The selected story has no readable source evidence.")
+        return f'{_clean(story.get("title"))}. {summary}'
+    raise RuntimeError("This source has no readable article text or usable summary.")
 
 
-def generate_script(story, source, previous=None):
+def find_related_sources(story):
+    news = GNews(language="en", max_results=5, max_retries=1)
+    rows = news.get_news(story["title"])
+    seen = {story["url"].rstrip("/")}
+    sources = []
+    for row in rows:
+        url = str(row.get("url") or "").strip().rstrip("/")
+        title = _clean(row.get("title"))
+        if not url or not title or url in seen:
+            continue
+        try:
+            text = article_text({
+                "title": title,
+                "url": url,
+                "description": row.get("description"),
+            })
+        except (RuntimeError, ValueError):
+            continue
+        sources.append({
+            "title": title,
+            "url": url,
+            "publisher": _clean(row.get("publisher")),
+            "text": text,
+        })
+        seen.add(url)
+    return sources
+
+
+def manual_sources(urls):
+    sources = []
+    seen = set()
+    for url in urls:
+        url = url.strip()
+        if not url or url in seen or not _valid_url(url):
+            continue
+        try:
+            text = article_text({"title": url, "url": url})
+        except (RuntimeError, ValueError):
+            continue
+        sources.append({"title": url, "url": url, "publisher": "Manual source", "text": text})
+        seen.add(url)
+    return sources
+
+
+def generate_script(story, sources, previous=None, source_stage="primary"):
+    source_text = "\n\n".join(
+        f'SOURCE {i}: {item["title"]}\nURL: {item["url"]}\n{item["text"][:12000]}'
+        for i, item in enumerate(sources, 1)
+    )
     previous_text = ""
     if previous:
         previous_text = f"""
@@ -116,51 +178,54 @@ Previous draft:
 Opening: {previous["opening_headline"]}
 Slides: {" ".join(slide["voiceover"] for slide in previous["slides"])}
 
-Create a genuinely different editorial angle and narrative spine. Do not merely swap words.
+Build a genuinely different angle and narrative spine. Do not merely swap words or reorder sentences.
 """
-    prompt = f"""Create a factual YouTube Short from this source.
+    stage_rule = {
+        "primary": "Use the primary source first. If it does not contain enough factual material for a substantive Short, return needs_more_sources.",
+        "automatic": "Use the primary source plus the automatically found related sources. If the combined evidence is still insufficient, return needs_more_sources.",
+        "manual": "Use every usable source provided here, including the manually supplied URLs. If the combined evidence is still insufficient, return needs_more_sources; do not invent or pad the story.",
+    }[source_stage]
+    prompt = f"""Create a factual YouTube Short from the supplied source material.
 
-Selected Topic Fetcher headline:
+Topic Fetcher selection:
 {story["title"]}
 
-Source evidence:
-{source[:18000]}
+{source_text}
 {previous_text}
 
-Work in this order:
-1. Understand the source and decide what actually happened.
-2. Choose the strongest supported editorial angle.
-3. Write the complete 4-slide Short, using 5 only when necessary.
-4. Only after the story is complete, create the YouTube titles, description, hashtags and first comment to package that finished Short.
+{stage_rule}
 
-The selected Topic Fetcher headline is context only. There is no approved YouTube title and no title should influence the story.
+Write from scratch after understanding the full story. The selected Topic Fetcher headline is the starting subject, not the finished script. Find the most interesting part of the story that genuinely works as a Short, choose one strongest angle, and build the narration around it. Do not simply expand, paraphrase or prolong the selected headline.
 
 Story rules:
-- Write from the source evidence, not from the headline alone.
-- Reorder and synthesise facts; do not follow source paragraphs mechanically.
-- Cover the important facts and context. Four slides should normally cover roughly 90% of the important story.
+- Use the available source material as the factual authority.
+- You may synthesise information across sources when the sources support the same story.
+- Reorder facts however the story needs; do not mechanically follow article paragraphs.
+- Capture the important facts, context, names, teams, organisations, events, numbers and remarks needed to understand the story.
+- Use as many slides as the story needs. There is no fixed slide count.
+- Every slide must add important information. Do not create filler slides, repetition or artificial sentence splits.
 - Slide 1 spoken narration must contain fewer than 14 words.
-- Total narration must fit 30 seconds and stay at or below 75 words.
-- Every slide must add important information.
-- Name central people, teams, organisations, events and other specific entities explicitly.
-- If a named person is central, use their actual name. Never replace them with "a legend", "a star", "the veteran" or "the player".
-- If a person's remark or opinion is central, identify that person and preserve the meaning and tone of the remark.
-- Do not let the selected headline determine the story angle.
-- Do not turn praise into criticism, advice into a demand, possibility into certainty or one detail into a larger narrative without evidence.
-- Do not invent controversy, criticism, pressure, doubts about form, legacy concerns, retirement implications, motives, reactions, stakes or consequences.
-- Do not invent facts, statistics, quotes, predictions or conclusions.
-- Retention must come from actual facts, context, contrast, consequence, significance or surprise in the source.
-- No filler, repetition, generic AI-news language or clickbait.
-- Opening screen headline must be exactly 3 or 4 words and specifically identify the story.
+- Keep total spoken narration to 65 words or fewer as the proxy for a Short under 30 seconds. The Audio stage may slightly speed the final voice if it is only marginally over 30 seconds.
+- Retention must come from real facts, context, contrast, consequence, significance or surprise in the sources.
+- Do not invent facts, statistics, quotes, reactions, motives, criticism, controversy, pressure, predictions or consequences.
+- If a person is identified in the sources, use their proper name. If the source calls that person a legend, icon, veteran or similar, still name the person when their identity is known. Never hide an identified person's name behind a generic label.
+- Preserve the meaning and tone of important remarks.
+- If the source does not contain enough of a real story, say so with status needs_more_sources instead of writing a thin or padded Short.
 
-Packaging rules:
-- Titles must accurately represent the completed Short.
-- Generate at least two genuinely different title angles.
-- Put important names and story terms early.
-- Description must explain the actual story naturally.
-- Hashtags must be relevant only.
-- The first comment must be specific to this story and invite a genuine response.
-- Do not let packaging introduce facts that are absent from the source or completed Short.
+Opening screen headline:
+- Exactly 3 or 4 words.
+- Specific to the story.
+
+When status is ready, also provide:
+- At least two genuinely different YouTube title options.
+- One natural description.
+- Relevant hashtags only.
+- One story-specific first/creator comment that invites a genuine response.
+- Packaging must describe the completed Short and introduce no unsupported facts.
+
+When status is needs_more_sources:
+- Give a concise reason.
+- Return an empty opening_headline, slides, titles, description, hashtags and first_comment.
 """
     key = os.getenv("GROQ_API_KEY")
     if not key:
@@ -169,21 +234,14 @@ Packaging rules:
     payload = {
         "model": MODEL,
         "messages": [
-            {
-                "role": "system",
-                "content": "You are an experienced sports/news editor. The supplied source is the factual authority.",
-            },
+            {"role": "system", "content": "You are an experienced sports/news editor. Source evidence controls factual claims."},
             {"role": "user", "content": prompt},
         ],
         "temperature": 0.3,
         "max_tokens": 2400,
         "response_format": {
             "type": "json_schema",
-            "json_schema": {
-                "name": "short_output",
-                "strict": True,
-                "schema": OUTPUT_SCHEMA,
-            },
+            "json_schema": {"name": "short_output", "strict": True, "schema": OUTPUT_SCHEMA},
         },
     }
     req = Request(
@@ -194,7 +252,8 @@ Packaging rules:
     )
     try:
         with urlopen(req, timeout=45) as response:
-            return json.loads(json.load(response)["choices"][0]["message"]["content"])
+            data = json.load(response)
+        return json.loads(data["choices"][0]["message"]["content"])
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", "ignore")
         raise RuntimeError(f"Groq request failed: {detail[:500]}") from exc
@@ -208,12 +267,15 @@ def validate_script(result):
     if not isinstance(result, dict):
         return ["Script output is not an object."]
 
+    status = result.get("status")
+    if status == "needs_more_sources":
+        return [] if str(result.get("reason", "")).strip() else ["A reason is required when more sources are needed."]
+    if status != "ready":
+        return ["Script status must be ready or needs_more_sources."]
+
     headline = str(result.get("opening_headline", "")).strip()
     slides = result.get("slides", [])
     errors = []
-
-    if len(slides) not in (4, 5):
-        errors.append("Script must contain 4 or 5 slides.")
     if not slides or not all(isinstance(slide, dict) for slide in slides):
         errors.append("Every slide must be an object.")
     elif len(re.findall(r"\b\w+[’'-]?\w*\b", slides[0].get("voiceover", ""))) >= 14:
@@ -224,24 +286,15 @@ def validate_script(result):
         for slide in slides
         if isinstance(slide, dict)
     )
-    if words > 75:
-        errors.append("Total narration is too long for the 30-second target.")
-    if not all(
-        isinstance(slide, dict) and slide.get("voiceover", "").strip()
-        for slide in slides
-    ):
+    if words > MAX_WORDS:
+        errors.append("Total narration must be 65 words or fewer.")
+    if not all(isinstance(slide, dict) and slide.get("voiceover", "").strip() for slide in slides):
         errors.append("Every slide needs spoken narration.")
     if len(re.findall(r"\b\S+\b", headline)) not in (3, 4):
         errors.append("Opening headline must contain exactly 3 or 4 words.")
-
-    voices = [
-        slide["voiceover"].strip().lower()
-        for slide in slides
-        if isinstance(slide, dict) and slide.get("voiceover")
-    ]
+    voices = [slide["voiceover"].strip().lower() for slide in slides if isinstance(slide, dict) and slide.get("voiceover")]
     if len(set(voices)) < len(voices):
         errors.append("Slides must not be duplicated.")
-
     if len(result.get("titles", [])) < 2:
         errors.append("At least two title options are required.")
     if not str(result.get("description", "")).strip():
