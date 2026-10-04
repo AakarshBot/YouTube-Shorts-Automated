@@ -166,7 +166,7 @@ def manual_sources(urls):
     return sources
 
 
-def generate_script(story, sources, previous=None, source_stage="primary"):
+def generate_script(story, sources, desk, previous=None, source_stage="primary"):
     source_text = "\n\n".join(
         f'SOURCE {i}: {item["title"]}\nURL: {item["url"]}\n{item["text"][:12000]}'
         for i, item in enumerate(sources, 1)
@@ -185,7 +185,7 @@ Build a genuinely different angle and narrative spine. Do not merely swap words 
         "automatic": "Use the primary source plus the automatically found related sources. If the combined evidence is still insufficient, return needs_more_sources.",
         "manual": "Use every usable source provided here, including the manually supplied URLs. If the combined evidence is still insufficient, return needs_more_sources; do not invent or pad the story.",
     }[source_stage]
-    prompt = f"""Create a factual YouTube Short from the supplied source material.
+    prompt = f"""Create a factual YouTube Short for the selected {desk} desk from the supplied source material.
 
 Topic Fetcher selection:
 {story["title"]}
@@ -234,7 +234,7 @@ When status is needs_more_sources:
     payload = {
         "model": MODEL,
         "messages": [
-            {"role": "system", "content": "You are an experienced sports/news editor. Source evidence controls factual claims."},
+            {"role": "system", "content": f"You are an experienced editor for the {desk} desk. Source evidence controls factual claims."},
             {"role": "user", "content": prompt},
         ],
         "temperature": 0.3,
