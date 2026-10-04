@@ -54,7 +54,7 @@ Sports opens:
 #### Regional Cricket
 
 Country pills:
-- India: target 25 headlines
+- India: target 25 title/entity pills; each pill counts as 1 unit toward the 25 target, regardless of how many headlines it contains. India remains the country pill, with these title/entity pills inside it.
 - Pakistan: target at least 5
 - Sri Lanka: target at least 5
 - Bangladesh: include when fresh qualifying stories exist
@@ -98,8 +98,8 @@ A keyword mention alone is not the retrieval strategy. Queries should be specifi
 - Preserve title, URL, publisher and publication time.
 - Normalise URLs before dedupe.
 - Search 20 more excludes previously shown URLs and merges unseen headlines into the existing pill.
-- First fetch requests up to 100 GNews results for India to support its 25-headline target and up to 20 for other first-pass queries; Search 20 more can request up to 40.
-- At most 8 GNews searches run concurrently.
+- First fetch requests up to 100 GNews results for India to support its 25 title/entity-pill target and up to 20 for other first-pass queries; Search 20 more can request up to 40. GNews applies max_results after fetching the RSS feed, so lowering result counts does not materially reduce network runtime.
+- At most 8 GNews searches run concurrently; this remains the current safe runtime/rate-limit balance.
 - GNews applies max_results after fetching the RSS feed, so lowering result counts does not materially reduce network runtime. Do not trade coverage for a nominal speed gain.
 - GNews rate-limit retries are limited to one.
 - No cache, alternate news provider or runtime dependency is introduced.
