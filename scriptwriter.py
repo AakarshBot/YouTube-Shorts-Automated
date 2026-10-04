@@ -64,6 +64,26 @@ OUTPUT_SCHEMA = {
     "additionalProperties": False,
 }
 
+SCRIPT_OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "status": {"type": "string", "enum": ["ready", "needs_more_sources"]},
+        "reason": {"type": "string"},
+        "opening_headline": {"type": "string"},
+        "slides": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"voiceover": {"type": "string"}},
+                "required": ["voiceover"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["status", "reason", "opening_headline", "slides"],
+    "additionalProperties": False,
+}
+
 
 class _Text(HTMLParser):
     def __init__(self):
@@ -223,16 +243,17 @@ Opening screen headline:
 - Exactly 3 or 4 words.
 - Specific to the story.
 
-When status is ready, also provide:
+{"""When status is ready, also provide:
 - At least two genuinely different YouTube title options.
 - One natural description.
 - Relevant hashtags only.
 - One story-specific first/creator comment that invites a genuine response.
 - Packaging must describe the completed Short and introduce no unsupported facts.
-
+""" if not script_only else """For a script-only redo, return only status, reason, opening_headline and slides. Do not generate packaging fields.
+"""}
 When status is needs_more_sources:
 - Give a concise reason.
-- Return an empty opening_headline, slides, titles, description, hashtags and first_comment.
+- Return empty script fields; for normal generation also return empty packaging fields.
 """
     key = os.getenv("GROQ_API_KEY")
     if not key:
@@ -248,7 +269,11 @@ When status is needs_more_sources:
         "max_tokens": 2400,
         "response_format": {
             "type": "json_schema",
-            "json_schema": {"name": "short_output", "strict": True, "schema": OUTPUT_SCHEMA},
+            "json_schema": {
+                "name": "script_output" if script_only else "short_output",
+                "strict": True,
+                "schema": SCRIPT_OUTPUT_SCHEMA if script_only else OUTPUT_SCHEMA,
+            },
         },
     }
     req = Request(
@@ -260,13 +285,7 @@ When status is needs_more_sources:
     try:
         with urlopen(req, timeout=45) as response:
             data = json.load(response)
-        result = json.loads(data["choices"][0]["message"]["content"])
-        if script_only and previous and result.get("status") == "ready":
-            result["titles"] = list(previous["titles"])
-            result["description"] = previous["description"]
-            result["hashtags"] = list(previous["hashtags"])
-            result["first_comment"] = previous["first_comment"]
-        return result
+        return json.loads(data["choices"][0]["message"]["content"])
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", "ignore")
         raise RuntimeError(f"Groq request failed: {detail[:500]}") from exc
