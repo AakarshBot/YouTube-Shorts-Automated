@@ -305,32 +305,104 @@ elif st.session_state.page == "scriptwriter":
             st.caption(f"Sources used: {len(st.session_state.source_evidence)}")
             for index, version in enumerate(st.session_state.script_versions):
                 st.subheader(f"Version {index + 1}")
-                st.markdown("**Opening headline (3–4 words)**")
-                st.markdown(f'<div class="script-card"><div class="screen-headline">{version["opening_headline"]}</div></div>', unsafe_allow_html=True)
-                for number, slide in enumerate(version["slides"], 1):
-                    st.markdown(f'<div class="script-card"><h4>Slide {number}</h4><div>{slide["voiceover"]}</div></div>', unsafe_allow_html=True)
-
-                st.subheader("Title options")
-                choice = st.selectbox("Choose the strongest title", version["titles"], index=0, key=f"title-{index}")
-                st.markdown("**Description**")
-                st.write(version["description"])
-                st.markdown("**Hashtags**")
-                st.write(" ".join(version["hashtags"]))
-                st.markdown("**First comment**")
-                st.write(version["first_comment"])
 
                 if st.session_state.approved_version == index:
+                    st.markdown("**Opening headline**")
+                    st.markdown(f'<div class="script-card"><div class="screen-headline">{version["opening_headline"]}</div></div>', unsafe_allow_html=True)
+                    for number, slide in enumerate(version["slides"], 1):
+                        st.markdown(f'<div class="script-card"><h4>Slide {number}</h4><div>{slide["voiceover"]}</div></div>', unsafe_allow_html=True)
+                    st.subheader("Title options")
+                    for title in version["titles"]:
+                        st.write(title)
+                    st.subheader("Description")
+                    st.write(version["description"])
+                    st.subheader("Hashtags")
+                    st.write(" ".join(version["hashtags"]))
+                    st.subheader("First comment")
+                    st.write(version["first_comment"])
                     st.success(f"Version {index + 1} approved · {st.session_state.approved_title}")
-                elif st.button(f"Approve Version {index + 1}", key=f"approve-script-{index}", type="primary", use_container_width=True):
-                    st.session_state.approved_version = index
-                    st.session_state.approved_title = choice
-                    st.session_state.script_error = None
-                    st.session_state.audio_result = None
-                    st.session_state.audio_error = None
-                    st.session_state.audio_approved = False
-                    st.session_state.audio_run = 1
-                    st.session_state.page = "audio"
-                    st.rerun()
+                    continue
+
+                opening_headline = st.text_input(
+                    "Opening headline (3–4 words)",
+                    value=version["opening_headline"],
+                    key=f"qc-headline-{index}",
+                )
+
+                edited_slides = []
+                for number, slide in enumerate(version["slides"], 1):
+                    edited_slides.append({
+                        "voiceover": st.text_area(
+                            f"Slide {number}",
+                            value=slide["voiceover"],
+                            key=f"qc-slide-{index}-{number}",
+                            height=90,
+                        )
+                    })
+
+                st.subheader("Title options")
+                edited_titles = []
+                for number, title in enumerate(version["titles"], 1):
+                    edited_titles.append(
+                        st.text_input(
+                            f"Title {number}",
+                            value=title,
+                            key=f"qc-title-{index}-{number}",
+                        )
+                    )
+                selected_title = st.selectbox(
+                    "Choose the strongest title",
+                    range(len(edited_titles)),
+                    format_func=lambda number: edited_titles[number],
+                    key=f"qc-choice-{index}",
+                )
+
+                description = st.text_area(
+                    "Description",
+                    value=version["description"],
+                    key=f"qc-description-{index}",
+                    height=110,
+                )
+                hashtags_text = st.text_area(
+                    "Hashtags",
+                    value="\n".join(version["hashtags"]),
+                    key=f"qc-hashtags-{index}",
+                    height=90,
+                    help="Use one hashtag per line.",
+                )
+                first_comment = st.text_area(
+                    "First comment",
+                    value=version["first_comment"],
+                    key=f"qc-comment-{index}",
+                    height=90,
+                )
+
+                if st.button(f"Approve Version {index + 1}", key=f"approve-script-{index}", type="primary", use_container_width=True):
+                    edited = {
+                        "status": version["status"],
+                        "reason": version.get("reason", ""),
+                        "opening_headline": opening_headline,
+                        "slides": edited_slides,
+                        "titles": edited_titles,
+                        "description": description,
+                        "hashtags": [item.strip() for item in hashtags_text.replace(",", "\n").splitlines() if item.strip()],
+                        "first_comment": first_comment,
+                    }
+                    errors = validate_script(edited)
+                    if errors:
+                        st.error(" · ".join(errors))
+                    else:
+                        version.clear()
+                        version.update(edited)
+                        st.session_state.approved_version = index
+                        st.session_state.approved_title = edited_titles[selected_title]
+                        st.session_state.script_error = None
+                        st.session_state.audio_result = None
+                        st.session_state.audio_error = None
+                        st.session_state.audio_approved = False
+                        st.session_state.audio_run = 1
+                        st.session_state.page = "audio"
+                        st.rerun()
 
             if st.session_state.script_error:
                 st.error(st.session_state.script_error)
@@ -371,12 +443,14 @@ elif st.session_state.page == "audio":
         st.caption("Narration only. The approved script is the only Audio input.")
 
         if st.session_state.audio_result is None and st.session_state.audio_error is None:
-            with st.spinner("Generating narration locally…"):
-                try:
-                    st.session_state.audio_result = generate_audio(version, st.session_state.audio_run)
-                except Exception as exc:
-                    st.session_state.audio_error = str(exc)
-            st.rerun()
+            st.info("Audio is ready to generate locally from the approved Scriptwriter version.")
+            if st.button("Generate Audio", type="primary", use_container_width=True):
+                with st.spinner("Generating narration locally…"):
+                    try:
+                        st.session_state.audio_result = generate_audio(version, st.session_state.audio_run)
+                    except Exception as exc:
+                        st.session_state.audio_error = str(exc)
+                st.rerun()
 
         if st.session_state.audio_error:
             st.error(st.session_state.audio_error)
