@@ -218,20 +218,72 @@ The selected Topic Fetcher headline and selected desk/genre remain the starting 
 - Slides 2–6 each limited to 15 seconds of speech.
 - No generic “5 stories you need to see…” opener.
 
+## Audio — IMPLEMENTED — PENDING LOCAL GENERATION/QC
+
+Stage 3 is narration only. No music, sound effects or other audio layers.
+
+### Audio engine
+- Chatterbox is the approved local TTS engine.
+- The code uses Chatterbox-Turbo on CUDA-capable machines and Chatterbox-Nano on CPU.
+- The model runs locally; there is no paid TTS API or cloud audio generation in the factory.
+- A single channel narrator is preferred for long-term identity.
+- If `audio_reference.wav` exists in the repo root, it is used as the narrator reference. `AUDIO_REFERENCE` may override that path. If no reference exists, the model's built-in voice is used.
+- The reference recording is optional for the first test but recommended for the long-term channel voice.
+- Reference audio must not be committed. It is ignored by git.
+
+### Delivery
+- Generate audio separately for every approved Scriptwriter slide.
+- Keep the narrator identity consistent while varying delivery modestly by slide.
+- Slide 1 receives a stronger opening delivery.
+- Final slides receive a small payoff emphasis.
+- Questions/exclamations receive slightly more expression.
+- Numeric/factual slides receive slightly slower pacing.
+- Chatterbox randomness is reseeded per run and slide so Redo Audio produces a genuinely new take.
+- Do not insert fake emotions, SFX, music or invented spoken content.
+- Preserve the Scriptwriter words exactly; Audio does not rewrite the story.
+
+### Timing and output
+- Add a small natural pause between slides.
+- Use the Scriptwriter 65-word limit as the primary protection for a Short under 30 seconds.
+- If the generated narration is only marginally above 30 seconds, apply at most a slight time-stretch before failing.
+- Reject narration that remains too long after the allowed slight speed adjustment.
+- Generate one complete `full.wav` plus one `slide_XX.wav` for each slide.
+- Local generated files live under `generated_audio/` and are not committed.
+- Output paths are derived from the script content so Redo Audio replaces the current take for that Short rather than creating uncontrolled file growth.
+- Audio output remains available as the handoff for Subtitles and later stages.
+
+### Test dashboard
+1. User approves the Scriptwriter version.
+2. Dashboard moves to Audio automatically.
+3. Audio generates locally from the approved slide voiceovers.
+4. Dashboard previews the complete Short.
+5. Dashboard previews every slide separately.
+6. User can listen and manually approve the Audio.
+7. Redo Audio regenerates a new take without changing the approved Scriptwriter text.
+8. Subtitles remain disabled until Stage 4 is built.
+
+### Local installation
+- Chatterbox is installed manually into the same existing project virtual environment.
+- It is intentionally not added to CI's lightweight `requirements.txt`; CI validates factory code without downloading the TTS model stack.
+- First local generation downloads/caches the Chatterbox model weights.
+
 ## Later stages
 
-Audio, Subtitles, Visuals, Renderer and Upload are not active. Preserve their existing functions and handovers unless explicitly requested.
+Subtitles, Visuals, Renderer and Upload are not active. Preserve their existing functions and handovers unless explicitly requested.
 
 ## Current files
 
 - PROJECT_CONTEXT.md — current source of truth.
 - topic_fetcher.py — completed Topic Fetcher.
-- app.py — Test dashboard and Scriptwriter flow. Dashboard logic is kept direct; no Scriptwriter wrapper/helper functions.
+- app.py — Test dashboard through Audio. Dashboard logic is kept direct; no stage wrapper/helper functions.
 - scriptwriter.py — source-first, desk-aware Scriptwriter approved at 6/10; pending multiple test cases across desks.
+- audio.py — local Chatterbox narration for approved Scriptwriter slides; implemented and pending local generation/QC.
 - tests/test_topic_fetcher.py — Topic Fetcher tests.
 - tests/test_scriptwriter.py — Scriptwriter tests.
+- tests/test_audio.py — Audio dependency-loading and input validation tests.
 - .github/workflows/test.yml — deterministic CI.
-- requirements.txt — runtime dependencies.
+- requirements.txt — lightweight factory dependencies; Chatterbox is installed manually in the local project environment.
+- .gitignore — excludes local Audio outputs and narrator reference audio.
 
 ## CI
 
