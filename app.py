@@ -69,19 +69,21 @@ else:
     st.title(st.session_state.genre)
     st.markdown('<div class="stage"><span class="active">01 Topic Fetcher</span><span>02 Scriptwriter</span><span>03 Audio</span><span>04 Subtitles</span><span>05 Visuals</span><span>06 Renderer</span><span>07 Upload</span></div>', unsafe_allow_html=True)
 
-    if st.button("Fetch 20 stories", type="primary"):
-        with st.spinner("Finding current stories…"):
-            st.session_state.topics = fetch_topics(st.session_state.genre)
-        st.session_state.seen_topics = {item["topic"].casefold() for item in st.session_state.topics}
-        st.session_state.seen_urls = {
-            headline["url"]
-            for item in st.session_state.topics
-            for headline in item["headlines"]
-        }
-
     topics = st.session_state.topics
+    if not topics:
+        if st.button("Fetch 20 stories", type="primary"):
+            with st.spinner("Finding current stories…"):
+                st.session_state.topics = fetch_topics(st.session_state.genre)
+            st.session_state.seen_topics = {item["topic"].casefold() for item in st.session_state.topics}
+            st.session_state.seen_urls = {
+                headline["url"]
+                for item in st.session_state.topics
+                for headline in item["headlines"]
+            }
+        topics = st.session_state.topics
+
     if topics:
-        if st.button("Find 20 more"):
+        if st.button("Search 20 more", type="primary", use_container_width=True):
             with st.spinner("Searching for more stories…"):
                 more = fetch_topics(
                     st.session_state.genre,

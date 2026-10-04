@@ -5,9 +5,9 @@ Current source of truth. Read before every edit and rewrite after every change; 
 ## Rules
 
 - Test first, Live second. Build and prove new functionality in Test, then reuse it in Live only after approval.
-- No wrappers, adapters, compatibility layers, proxy functions or scaffolding. Replace code directly when needed.
-- `ranahaani/GNews` is the approved Google News source. Use the maintained `gnews` package; do not copy its source or build a custom Google News client.
-- `AakarshBot/Final-Shorts` is reference material only, not a code source.
+- No wrappers, adapters, compatibility layers, proxy functions or scaffolding. Delete and rewrite code directly when the current approach is wrong.
+- ranahaani/GNews is the approved Google News source. Use the maintained gnews package; do not copy its source or build a custom Google News client.
+- AakarshBot/Final-Shorts is reference material only, not a code source.
 
 ## Current factory
 
@@ -23,7 +23,10 @@ Status: **Test / not approved**.
 
 Requirements:
 - Produce 20 topic pills per desk when the available source pool supports it.
-- Over-fetch so filtering does not unnecessarily shrink the useful pool.
+- Search concurrently across multiple country-specific GNews pools instead of using one India-biased country setting.
+- The regional cricket desk must search India (IN), Pakistan (PK), Sri Lanka (LK), Bangladesh (BD) and Afghanistan (AF); it must not silently reduce the desk to India news.
+- The regional desk must return Pakistan and Sri Lanka groups when those current groups exist, targeting at least 3 groups from each before filling the remaining slots by overall ranking.
+- Global cricket and niche sports use multiple country-specific GNews pools so their results are not dominated by India either.
 - Prefer current stories, using the newest 24 hours when 20 distinct groups are available; otherwise retain the 72-hour pool.
 - Remove utility pages such as schedules, fixtures, standings, scorecards, watch guides, predicted lineups, galleries, quizzes, odds and similar pages.
 - Avoid stale recap/review material without a new development.
@@ -35,32 +38,31 @@ Requirements:
 - English only for now; language support comes later.
 
 Implementation:
-- `topic_fetcher.py` calls `GNews.get_news()` directly and concurrently.
-- Local processing is limited to cleanup, URL dedupe, freshness selection, entity grouping and simple ranking.
-- No AI classification, GDELT, custom RSS client or retrieval wrapper.
-- `fetch_topics()` accepts `exclude_topics` and `exclude_urls` so the Test UI can request another batch without repeating visible/previous groups, including overlapping entity-name variants.
+- topic_fetcher.py calls GNews.get_news() directly and concurrently.
+- Each search has its own GNews country setting; there is no retrieval wrapper or alternate news client.
+- Local processing is limited to cleanup, URL dedupe, freshness selection, entity grouping and ranking.
+- fetch_topics() accepts exclude_topics and exclude_urls so the Test UI can request another batch without repeating visible/previous groups, including overlapping entity-name variants.
 
 ## Test dashboard
 
-`app.py` provides Homepage → Test → Deep-Dive → Sports → Genre → Topic Fetcher.
-The Topic Fetcher screen has `Fetch 20 stories` for the first batch and `Find 20 more` after results appear.
-`Find 20 more` keeps session-level topic/URL exclusions, replaces the visible batch with the new results, and accumulates exclusions so repeated searches do not immediately recycle prior choices.
+app.py provides Homepage → Test → Deep-Dive → Sports → Genre → Topic Fetcher.
+The first run shows Fetch 20 stories; after results load, the same screen shows Search 20 more.
+Search 20 more keeps session-level topic/URL exclusions, replaces the visible batch with the new results, and accumulates exclusions so repeated searches do not immediately recycle prior choices.
 
 UI target: light/warm, readable, compact, minimal CSS, straightforward Streamlit.
-Buttons must use explicit light backgrounds and dark readable text in normal, hover, primary and disabled states; do not rely on Streamlit's default dark button styling.
+Buttons use explicit light backgrounds and dark readable text in normal, hover, primary and disabled states.
 
 ## Tests and CI
 
-`tests/test_topic_fetcher.py` covers the three desks and entity extraction; the query-count assertion protects the minimum discovery pool.
-
-`.github/workflows/test.yml` installs dependencies, runs pytest, then performs a real fetch for all three desks and requires 20 returned topic pills per desk.
+tests/test_topic_fetcher.py covers the three desks, the regional country pool and entity extraction.
+.github/workflows/test.yml installs dependencies, runs pytest, then performs a real fetch for all three desks and requires 20 returned topic pills per desk.
 CI success is not editorial approval; returned stories still require manual QC.
 
 ## Current files
 
-- `PROJECT_CONTEXT.md` — current rules and state
-- `topic_fetcher.py` — Topic Fetcher
-- `app.py` — Test dashboard
-- `tests/test_topic_fetcher.py` — focused tests
-- `.github/workflows/test.yml` — CI and live-fetch smoke test
-- `requirements.txt` — runtime dependencies
+- PROJECT_CONTEXT.md — current rules and state
+- topic_fetcher.py — Topic Fetcher
+- app.py — Test dashboard
+- tests/test_topic_fetcher.py — focused tests
+- .github/workflows/test.yml — CI and live-fetch smoke test
+- requirements.txt — runtime dependencies
