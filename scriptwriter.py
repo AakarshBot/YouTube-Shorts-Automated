@@ -8,6 +8,15 @@ from urllib.request import Request, urlopen
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+
+if not os.getenv("GROQ_API_KEY"):
+    env_path = os.path.join(os.path.dirname(__file__), ".env")
+    if os.path.isfile(env_path):
+        with open(env_path, encoding="utf-8") as env_file:
+            for line in env_file:
+                if line.strip().startswith("GROQ_API_KEY="):
+                    os.environ["GROQ_API_KEY"] = line.split("=", 1)[1].strip().strip("\\"'")
+                    break
 HEADLINE_SCHEMA = {
     "type": "object",
     "properties": {"titles": {"type": "array", "items": {"type": "string"}}},
