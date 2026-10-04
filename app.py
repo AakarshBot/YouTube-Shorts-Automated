@@ -311,40 +311,59 @@ elif st.session_state.page == "scriptwriter":
                 st.subheader(f"Version {index + 1}")
 
                 if st.session_state.approved_version == index:
-                    st.markdown("**Opening headline**")
-                    st.markdown(f'<div class="script-card"><div class="screen-headline">{version["opening_headline"]}</div></div>', unsafe_allow_html=True)
+                    st.markdown("### Opening headline")
+                    st.markdown(
+                        f'<div class="script-card"><div class="screen-headline">{version["opening_headline"]}</div></div>',
+                        unsafe_allow_html=True,
+                    )
+
+                    st.markdown("### Voiceover")
                     for number, slide in enumerate(version["slides"], 1):
-                        st.markdown(f'<div class="script-card"><h4>Slide {number}</h4><div>{slide["voiceover"]}</div></div>', unsafe_allow_html=True)
-                    st.subheader("Title options")
-                    for title in version["titles"]:
+                        st.markdown(
+                            f'<div class="script-card"><h4>Slide {number}</h4><div>{slide["voiceover"]}</div></div>',
+                            unsafe_allow_html=True,
+                        )
+
+                    st.markdown("### YouTube titles")
+                    for number, title in enumerate(version["titles"], 1):
+                        st.markdown(f"**Title {number}**")
                         st.write(title)
-                    st.subheader("Description")
+
+                    st.markdown("### Description")
                     st.write(version["description"])
-                    st.subheader("Hashtags")
+
+                    st.markdown("### Hashtags")
                     st.write(" ".join(version["hashtags"]))
-                    st.subheader("First comment")
+
+                    st.markdown("### First comment")
                     st.write(version["first_comment"])
+
                     st.success(f"Version {index + 1} approved · {st.session_state.approved_title}")
                     continue
 
+                st.markdown("### 1. Opening headline")
                 opening_headline = st.text_input(
                     "Opening headline (3–4 words)",
                     value=version["opening_headline"],
                     key=f"qc-headline-{index}",
                 )
 
+                st.markdown("### 2. Voiceover")
                 edited_slides = []
                 for number, slide in enumerate(version["slides"], 1):
-                    edited_slides.append({
-                        "voiceover": st.text_area(
-                            f"Slide {number}",
-                            value=slide["voiceover"],
-                            key=f"qc-slide-{index}-{number}",
-                            height=90,
-                        )
-                    })
+                    with st.container(border=True):
+                        st.markdown(f"**Slide {number}**")
+                        edited_slides.append({
+                            "voiceover": st.text_area(
+                                "Voiceover",
+                                value=slide["voiceover"],
+                                key=f"qc-slide-{index}-{number}",
+                                height=100,
+                                label_visibility="collapsed",
+                            )
+                        })
 
-                st.subheader("Title options")
+                st.markdown("### 3. YouTube titles")
                 edited_titles = []
                 for number, title in enumerate(version["titles"], 1):
                     edited_titles.append(
@@ -354,19 +373,23 @@ elif st.session_state.page == "scriptwriter":
                             key=f"qc-title-{index}-{number}",
                         )
                     )
+
                 selected_title = st.selectbox(
-                    "Choose the strongest title",
+                    "Strongest title to publish",
                     range(len(edited_titles)),
                     format_func=lambda number: edited_titles[number],
                     key=f"qc-choice-{index}",
                 )
 
+                st.markdown("### 4. Description")
                 description = st.text_area(
                     "Description",
                     value=version["description"],
                     key=f"qc-description-{index}",
-                    height=110,
+                    height=120,
                 )
+
+                st.markdown("### 5. Hashtags")
                 hashtags_text = st.text_area(
                     "Hashtags",
                     value="\n".join(version["hashtags"]),
@@ -374,14 +397,22 @@ elif st.session_state.page == "scriptwriter":
                     height=90,
                     help="Use one hashtag per line.",
                 )
+
+                st.markdown("### 6. First comment")
                 first_comment = st.text_area(
                     "First comment",
                     value=version["first_comment"],
                     key=f"qc-comment-{index}",
-                    height=90,
+                    height=100,
                 )
 
-                if st.button(f"Approve Version {index + 1}", key=f"approve-script-{index}", type="primary", use_container_width=True):
+                st.markdown("### 7. Approval")
+                if st.button(
+                    f"Approve Version {index + 1}",
+                    key=f"approve-script-{index}",
+                    type="primary",
+                    use_container_width=True,
+                ):
                     edited = {
                         "status": version["status"],
                         "reason": version.get("reason", ""),
@@ -389,7 +420,11 @@ elif st.session_state.page == "scriptwriter":
                         "slides": edited_slides,
                         "titles": edited_titles,
                         "description": description,
-                        "hashtags": [item.strip() for item in hashtags_text.replace(",", "\n").splitlines() if item.strip()],
+                        "hashtags": [
+                            item.strip()
+                            for item in hashtags_text.replace(",", "\n").splitlines()
+                            if item.strip()
+                        ],
                         "first_comment": first_comment,
                     }
                     errors = validate_script(edited)
