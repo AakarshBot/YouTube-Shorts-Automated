@@ -74,7 +74,7 @@ def article_text(story):
         text = re.sub(r"\s+", " ", html.unescape(" ".join(parser.parts))).strip()
         if len(text) >= 300:
             return text[:20000]
-    except (HTTPError, URLError, TimeoutError):
+    except (HTTPError, URLError, TimeoutError, ValueError):
         pass
 
     summary = re.sub(r"\s+", " ", html.unescape(str(story.get("description") or ""))).strip()
