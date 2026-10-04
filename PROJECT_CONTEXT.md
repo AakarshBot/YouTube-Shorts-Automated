@@ -206,9 +206,10 @@ The Scriptwriter test flow is:
 8. When ready, dashboard shows only the completed script and packaging needed for QC; raw article text is not displayed.
 9. Dashboard shows the editable QC package in a fixed editorial order: opening headline, slide-by-slide voiceover, YouTube title options, strongest-title selection, description, hashtags, first comment, then approval.
 10. Voiceover slides are visually separated and explicitly labelled by slide number; packaging fields are kept in their own sections so the QC page does not visually mix script and metadata.
-11. User can edit any of those fields, choose the strongest title, and approve the edited version or approve the generated version unchanged.
-12. Approval validates the edited package before the version becomes the Audio input.
-13. Improve / Re-run is available before approval.
+11. Scriptwriter QC text inputs, text areas and title-selection controls use the light dashboard surface with dark readable text; do not use black/dark field contrast in the test dashboard.
+12. User can edit any of those fields, choose the strongest title, and approve the edited version or approve the generated version unchanged.
+13. Approval validates the edited package before the version becomes the Audio input.
+14. Improve / Re-run is available before approval.
 
 The selected Topic Fetcher headline and selected desk/genre remain the starting story inputs. The approved title is stored for later handoff only and is never passed into Scriptwriter generation.
 
