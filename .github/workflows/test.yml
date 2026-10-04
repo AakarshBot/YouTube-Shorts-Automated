@@ -14,5 +14,5 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt pytest
-      - run: python -m py_compile app.py topic_fetcher.py scriptwriter.py
+      - run: python -m py_compile app.py topic_fetcher.py scriptwriter.py audio.py
       - run: python -m pytest -q
