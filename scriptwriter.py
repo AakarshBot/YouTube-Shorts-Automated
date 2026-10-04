@@ -118,12 +118,15 @@ Use meaningfully different packaging angles, such as direct/result-led, conseque
 Keep every option accurate to the source, concise, natural, Shorts-friendly, with important words early.
 No clickbait, fake curiosity, unsupported claims, excessive capitals or emoji.
 Do not simply rewrite the supplied headline."""
-    return _groq(
+    titles = _groq(
         "short_titles",
         HEADLINE_SCHEMA,
         "You are a sharp sports/news video editor. Facts in the supplied source are the only authority.",
         prompt,
     )["titles"]
+    if not titles:
+        raise RuntimeError("No title options were returned.")
+    return titles
 
 
 def generate_script(story, approved_title, source, improve=False):
