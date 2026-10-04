@@ -18,23 +18,29 @@ h1{font-size:2.5rem;letter-spacing:-.04em}
 </style>
 """, unsafe_allow_html=True)
 
-if "page" not in st.session_state: st.session_state.page = "home"
-if "genre" not in st.session_state: st.session_state.genre = None
-if "topics" not in st.session_state: st.session_state.topics = []
+st.session_state.setdefault("page", "home")
+st.session_state.setdefault("genre", None)
+st.session_state.setdefault("topics", [])
+st.session_state.setdefault("seen_topics", set())
+st.session_state.setdefault("seen_urls", set())
 
 def go(page, genre=None):
     st.session_state.page, st.session_state.genre = page, genre
-    if page != "topics": st.session_state.topics = []
+    if page != "topics":
+        st.session_state.topics = []
+        st.session_state.seen_topics = set()
+        st.session_state.seen_urls = set()
     st.rerun()
 
 if st.session_state.page == "home":
     st.title("YouTube Shorts Automated")
     st.markdown('<div class="sub">Build, test and publish Shorts through a controlled production pipeline.</div>', unsafe_allow_html=True)
-    a,b=st.columns(2)
+    a, b = st.columns(2)
     with a:
         st.subheader("Test")
         st.caption("Build and approve functions one stage at a time.")
-        if st.button("Enter Test →", type="primary", use_container_width=True): go("formats")
+        if st.button("Enter Test →", type="primary", use_container_width=True):
+            go("formats")
     with b:
         st.subheader("Live")
         st.caption("Production pipeline will be enabled after Test approval.")
@@ -43,7 +49,8 @@ if st.session_state.page == "home":
 elif st.session_state.page == "formats":
     st.button("← Home", on_click=go, args=("home",))
     st.title("Choose a format")
-    if st.button("Deep-Dive", type="primary", use_container_width=True): go("sports")
+    if st.button("Deep-Dive", type="primary", use_container_width=True):
+        go("sports")
     st.caption("More formats — Top-5, Did You Know and others — will be added later.")
 
 elif st.session_state.page == "sports":
@@ -61,12 +68,37 @@ else:
     if st.button("Fetch 20 stories", type="primary"):
         with st.spinner("Finding current stories…"):
             st.session_state.topics = fetch_topics(st.session_state.genre)
+        st.session_state.seen_topics = {item["topic"].casefold() for item in st.session_state.topics}
+        st.session_state.seen_urls = {
+            headline["url"]
+            for item in st.session_state.topics
+            for headline in item["headlines"]
+        }
 
     topics = st.session_state.topics
     if topics:
+        if st.button("Find 20 more"):
+            with st.spinner("Searching for more stories…"):
+                more = fetch_topics(
+                    st.session_state.genre,
+                    exclude_topics=st.session_state.seen_topics,
+                    exclude_urls=st.session_state.seen_urls,
+                )
+            if more:
+                st.session_state.topics = more
+                st.session_state.seen_topics.update(item["topic"].casefold() for item in more)
+                st.session_state.seen_urls.update(
+                    headline["url"]
+                    for item in more
+                    for headline in item["headlines"]
+                )
+            else:
+                st.warning("No additional topic groups were found in the current search window.")
+
+        topics = st.session_state.topics
         st.caption(f"{len(topics)} topic pills")
         for item in topics:
-            with st.expander(f"{item['topic']}  ·  {len(item['headlines'])} headlines"):
+            with st.expander(f"{item['topic']} · {len(item['headlines'])} headlines"):
                 for h in item["headlines"]:
                     st.markdown(f"**{h['title']}**")
                     st.markdown(f"<div class='meta'>{h['publisher']} · {h['published_at'][:16].replace('T',' ')} · <a href='{h['url']}' target='_blank'>Source</a></div>", unsafe_allow_html=True)

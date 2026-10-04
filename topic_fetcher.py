@@ -75,14 +75,12 @@ def _entity(title):
     ]
     return max(words, key=len, default="Story")
 
-def _same_story(a, b):
-    a = {w.lower() for w in re.findall(r"[A-Za-z][A-Za-z'-]{2,}", _clean(a["title"])) if w.lower() not in STOP}
-    b = {w.lower() for w in re.findall(r"[A-Za-z][A-Za-z'-]{2,}", _clean(b["title"])) if w.lower() not in STOP}
-    return bool(a and b) and len(a & b) / min(len(a), len(b)) >= 0.7
-
-def fetch_topics(genre, limit=20):
+def fetch_topics(genre, limit=20, exclude_topics=(), exclude_urls=()):
     if genre not in GENRES:
         raise ValueError(f"Unknown genre: {genre}")
+
+    blocked_topics = {str(x).casefold() for x in exclude_topics}
+    blocked_urls = {_url(x) for x in exclude_urls}
 
     gnews = GNews(language="en", country="IN", max_results=100)
     with ThreadPoolExecutor(max_workers=len(GENRES[genre])) as pool:
@@ -92,7 +90,10 @@ def fetch_topics(genre, limit=20):
     rows, seen = [], set()
     for item in raw:
         title, url = _clean(item.get("title")), _url(item.get("url"))
-        if not title or not url or url in seen or BAD.search(title):
+        if not title or not url or url in seen or url in blocked_urls or BAD.search(title):
+            continue
+        topic = _entity(title)
+        if topic.casefold() in blocked_topics:
             continue
         try:
             published = parsedate_to_datetime(item.get("published date", "")).astimezone(timezone.utc)
@@ -103,32 +104,43 @@ def fetch_topics(genre, limit=20):
             "url": url,
             "publisher": _clean(item.get("publisher")),
             "published_at": published,
+            "topic": topic,
         })
         seen.add(url)
 
     recent = [r for r in rows if r["published_at"] >= now - timedelta(hours=24)]
-    if len({_entity(r["title"]) for r in recent}) >= limit:
+    if len({r["topic"].casefold() for r in recent}) >= limit:
         rows = recent
 
-    groups = defaultdict(list)
+    groups = []
     for row in sorted(rows, key=lambda r: r["published_at"], reverse=True):
-        key = _entity(row["title"])
-        if not any(_same_story(row, old) for old in groups[key]):
-            groups[key].append(row)
+        topic = row["topic"]
+        key = topic.casefold()
+        group = next(
+            (
+                g for g in groups
+                if key == g["key"] or key in g["key"] or g["key"] in key
+            ),
+            None,
+        )
+        if group:
+            group["headlines"].append(row)
+        else:
+            groups.append({"topic": topic, "key": key, "headlines": [row]})
 
     ranked = sorted(
-        groups.items(),
-        key=lambda item: (
-            max(r["published_at"] for r in item[1]),
-            len({r["publisher"] for r in item[1] if r["publisher"]}),
-            len(item[1]),
+        groups,
+        key=lambda group: (
+            max(r["published_at"] for r in group["headlines"]),
+            len({r["publisher"] for r in group["headlines"] if r["publisher"]}),
+            len(group["headlines"]),
         ),
         reverse=True,
     )
 
     return [
         {
-            "topic": topic,
+            "topic": group["topic"],
             "headlines": [
                 {
                     "title": r["title"],
@@ -136,8 +148,8 @@ def fetch_topics(genre, limit=20):
                     "publisher": r["publisher"],
                     "published_at": r["published_at"].isoformat(),
                 }
-                for r in articles
+                for r in group["headlines"]
             ],
         }
-        for topic, articles in ranked[:limit]
+        for group in ranked[:limit]
     ]
