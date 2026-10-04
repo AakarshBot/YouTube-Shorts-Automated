@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from topic_fetcher import BAD, DESK_PILLS, DESKS, GENRES, _group_india_rows
+from topic_fetcher import BAD, DESK_PILLS, DESKS, GENRES, _group_india_rows, _url
 
 SPORTS = "Sports"
 NON_SPORTS = (
@@ -57,3 +57,8 @@ def test_india_headlines_group_by_shared_title_entity():
     assert len(asia["headlines"]) == 2
     assert len(groups) == 3
     assert all(isinstance(row["published_at"], str) for group in groups for row in group["headlines"])
+
+
+def test_source_url_query_is_preserved():
+    url = "https://news.google.com/news/url?url=https%3A%2F%2Fexample.com%2Fstory&oc=5"
+    assert _url(url) == url.lower()
