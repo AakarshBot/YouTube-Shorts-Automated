@@ -78,10 +78,10 @@ def article_text(story):
         )
         with urlopen(req, timeout=12) as response:
             raw = response.read(300000).decode("utf-8", "ignore")
-        article = re.search(r"<article[sS]*?</article>", raw, flags=re.I)
+        article = re.search(r"<article\b.*?</article>", raw, flags=re.I | re.S)
         target = article.group(0) if article else raw
         parser = _Text()
-        parser.feed(re.sub(r"<head[sS]*?</head>", " ", target, flags=re.I))
+        parser.feed(re.sub(r"<head.*?</head>", " ", target, flags=re.I | re.S))
         text = re.sub(r"\s+", " ", html.unescape(" ".join(parser.parts))).strip()
         if len(text) >= 300:
             return text[:20000]

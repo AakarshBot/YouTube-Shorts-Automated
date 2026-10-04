@@ -208,7 +208,7 @@ These stages are not the current active task. Preserve existing functions and ha
 - Topic Fetcher must pass title, URL, publisher, published_at and GNews description for every selectable headline on every desk.
 - Source URLs must not be lowercased or stripped of query parameters because the exact URL can be required to reach the intended page.
 - The previous failure caused by an arbitrary 80-character fallback-description threshold has been removed.
-- The last successful CI run was before this cleanup commit; CI must pass the current `main` commit before this state is considered technically approved.
+- CI is the technical gate for every cleanup commit; this state is not approved until the current `main` commit passes syntax checks and the unit suite.
 - The dashboard keeps only state required for navigation, source handoff, title approval, script versions and manual QC; duplicate `desk` and `title_choice` state has been removed.
 - Title-generation retry reuses an already-fetched source when available, and script-generation errors retain the approved title so the user-triggered retry remains usable.
 - Do not add browser-spoofing headers, a Groq SDK dependency or retry/repair layers solely to work around Cloudflare error 1010; treat an HTTP 403/1010 as an edge access problem unless the exact request failure proves otherwise.
