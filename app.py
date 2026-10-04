@@ -1,4 +1,6 @@
 import streamlit as st
+
+from scriptwriter import article_text, generate_script, generate_titles, validate_script
 from topic_fetcher import DESKS, GENRES, fetch_topics
 
 st.set_page_config(page_title="YouTube Shorts Automated", page_icon="▶", layout="wide")
@@ -13,8 +15,12 @@ h1{font-size:2.5rem;letter-spacing:-.04em}
 .stage{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0}
 .stage span{border:1px solid var(--line);padding:8px 12px;border-radius:999px;background:var(--card);font-size:.82rem}
 .stage .active{background:var(--ink);color:white;border-color:var(--ink)}
+.stage .done{background:#e8e3d8}
 .headline{border:1px solid var(--line);padding:10px 12px;border-radius:12px;background:var(--card);margin:6px 0}
 .meta{color:var(--muted);font-size:.78rem;margin-top:5px}
+.script-card{border:1px solid var(--line);padding:18px;border-radius:16px;background:var(--card);margin:10px 0}
+.script-card h4{margin:0 0 8px}
+.screen-headline{font-size:2rem;font-weight:700;letter-spacing:-.03em}
 div.stButton>button{background:#fffdf8;color:#171915;border:1px solid #cfcabe;border-radius:999px;box-shadow:none}
 div.stButton>button:hover{background:#f0ede5;color:#171915;border-color:#aaa599}
 div.stButton>button[kind="primary"]{background:#e8e3d8;color:#171915;border-color:#bdb6a8}
@@ -23,19 +29,13 @@ div.stButton>button:disabled{background:#efede8;color:#8a877f;border-color:#ddd9
 </style>
 """, unsafe_allow_html=True)
 
-st.session_state.setdefault("page", "home")
-st.session_state.setdefault("desk", None)
-st.session_state.setdefault("genre", None)
-st.session_state.setdefault("topics", [])
-st.session_state.setdefault("seen_urls", set())
-
-def go(page, desk=None, genre=None):
-    st.session_state.page = page
-    st.session_state.desk = desk
-    st.session_state.genre = genre
-    st.session_state.topics = []
-    st.session_state.seen_urls = set()
-    st.rerun()
+for key, value in {
+    "page":"home","desk":None,"genre":None,"topics":[],"seen_urls":set(),
+    "selected_story":None,"source_text":"","title_options":[],"title_choice":None,
+    "approved_title":None,"script_versions":[],"script_approved":None,
+    "title_error":None,"script_error":None,
+}.items():
+    st.session_state.setdefault(key, value)
 
 if st.session_state.page == "home":
     st.title("YouTube Shorts Automated")
@@ -45,55 +45,79 @@ if st.session_state.page == "home":
         st.subheader("Test")
         st.caption("Build and approve functions one stage at a time.")
         if st.button("Enter Test →", type="primary", use_container_width=True):
-            go("formats")
+            st.session_state.page = "formats"
+            st.rerun()
     with b:
         st.subheader("Live")
         st.caption("Production pipeline will be enabled after Test approval.")
         st.button("Live — coming later", disabled=True, use_container_width=True)
 
 elif st.session_state.page == "formats":
-    st.button("← Home", on_click=go, args=("home",))
+    if st.button("← Home"):
+        st.session_state.page = "home"
+        st.rerun()
     st.title("Choose a format")
     if st.button("Deep-Dive", type="primary", use_container_width=True):
-        go("deep-dive")
+        st.session_state.page = "deep-dive"
+        st.rerun()
     st.caption("More formats — Top-5, Did You Know and others — will be added later.")
 
 elif st.session_state.page == "deep-dive":
-    st.button("← Formats", on_click=go, args=("formats",))
+    if st.button("← Formats"):
+        st.session_state.page = "formats"
+        st.rerun()
     st.title("Deep-Dive")
     for desk in DESKS:
         if st.button(desk, use_container_width=True):
+            st.session_state.desk = desk
             if desk == "Sports":
-                go("sports", "Sports")
+                st.session_state.page = "sports"
             else:
-                go("topics", desk, desk)
+                st.session_state.genre = desk
+                st.session_state.topics = []
+                st.session_state.seen_urls = set()
+                st.session_state.page = "topics"
+            st.rerun()
 
 elif st.session_state.page == "sports":
-    st.button("← Deep-Dive", on_click=go, args=("deep-dive",))
+    if st.button("← Deep-Dive"):
+        st.session_state.page = "deep-dive"
+        st.rerun()
     st.title("Sports")
     for genre in DESKS["Sports"]:
         if st.button(genre, use_container_width=True):
-            go("topics", "Sports", genre)
+            st.session_state.genre = genre
+            st.session_state.topics = []
+            st.session_state.seen_urls = set()
+            st.session_state.page = "topics"
+            st.rerun()
 
-else:
+elif st.session_state.page == "topics":
     if st.session_state.desk == "Sports":
-        st.button("← Sports", on_click=go, args=("sports", "Sports"))
+        if st.button("← Sports"):
+            st.session_state.page = "sports"
+            st.rerun()
     else:
-        st.button("← Deep-Dive", on_click=go, args=("deep-dive",))
+        if st.button("← Deep-Dive"):
+            st.session_state.page = "deep-dive"
+            st.rerun()
+
     st.title(st.session_state.genre)
     st.markdown('<div class="stage"><span class="active">01 Topic Fetcher</span><span>02 Scriptwriter</span><span>03 Audio</span><span>04 Subtitles</span><span>05 Visuals</span><span>06 Renderer</span><span>07 Upload</span></div>', unsafe_allow_html=True)
 
-    topics = st.session_state.topics
-    if not topics:
+    if not st.session_state.topics:
         if st.button("Fetch stories", type="primary"):
             with st.spinner("Finding current stories…"):
                 st.session_state.topics = fetch_topics(st.session_state.genre)
             st.session_state.seen_urls = {
                 h["url"] for item in st.session_state.topics for h in item["headlines"]
             }
-        topics = st.session_state.topics
+            st.rerun()
 
-    if topics:
+    topics = st.session_state.topics
+    if not topics:
+        st.info("No fresh qualifying stories found.")
+    else:
         pill = "country" if st.session_state.genre in GENRES else "topic"
         if st.button("Search 20 more", type="primary", use_container_width=True):
             with st.spinner("Searching for more stories…"):
@@ -116,6 +140,7 @@ else:
             st.session_state.seen_urls.update(
                 h["url"] for item in more for h in item["headlines"]
             )
+            st.rerun()
 
         st.caption(f"{len(topics)} {pill} pills")
         for item in topics:
@@ -123,13 +148,165 @@ else:
                 with st.expander(f"India · {len(item['groups'])} title pills"):
                     for group in item["groups"]:
                         with st.expander(f"{group['topic']} · {len(group['headlines'])} headlines"):
-                            for h in group["headlines"]:
+                            for index, h in enumerate(group["headlines"]):
                                 st.markdown(f'<div class="headline">{h["title"]}</div>', unsafe_allow_html=True)
                                 st.markdown(f"<div class='meta'>{h['publisher']} · {h['published_at'][:16].replace('T',' ')} · <a href='{h['url']}' target='_blank'>Source</a></div>", unsafe_allow_html=True)
+                                if st.button("Use this story →", key=f"pick-{h['url']}-{index}"):
+                                    st.session_state.selected_story = h
+                                    st.session_state.source_text = ""
+                                    st.session_state.title_options = []
+                                    st.session_state.title_choice = None
+                                    st.session_state.approved_title = None
+                                    st.session_state.script_versions = []
+                                    st.session_state.script_approved = None
+                                    st.session_state.title_error = None
+                                    st.session_state.script_error = None
+                                    st.session_state.page = "scriptwriter"
+                                    st.rerun()
             else:
                 with st.expander(f"{item['topic']} · {len(item['headlines'])} headlines"):
-                    for h in item["headlines"]:
+                    for index, h in enumerate(item["headlines"]):
                         st.markdown(f'<div class="headline">{h["title"]}</div>', unsafe_allow_html=True)
                         st.markdown(f"<div class='meta'>{h['publisher']} · {h['published_at'][:16].replace('T',' ')} · <a href='{h['url']}' target='_blank'>Source</a></div>", unsafe_allow_html=True)
+                        if st.button("Use this story →", key=f"pick-{h['url']}-{index}"):
+                            st.session_state.selected_story = h
+                            st.session_state.source_text = ""
+                            st.session_state.title_options = []
+                            st.session_state.title_choice = None
+                            st.session_state.approved_title = None
+                            st.session_state.script_versions = []
+                            st.session_state.script_approved = None
+                            st.session_state.title_error = None
+                            st.session_state.script_error = None
+                            st.session_state.page = "scriptwriter"
+                            st.rerun()
+
+elif st.session_state.page == "scriptwriter":
+    if st.button("← Topic Fetcher"):
+        st.session_state.page = "topics"
+        st.rerun()
+
+    st.title("Scriptwriter")
+    st.markdown('<div class="stage"><span class="done">01 Topic Fetcher</span><span class="active">02 Scriptwriter</span><span>03 Audio</span><span>04 Subtitles</span><span>05 Visuals</span><span>06 Renderer</span><span>07 Upload</span></div>', unsafe_allow_html=True)
+
+    story = st.session_state.selected_story
+    if not story:
+        st.info("Select a headline in Topic Fetcher first.")
     else:
-        st.info("No fresh qualifying stories found.")
+        st.subheader("Selected story")
+        st.markdown(f'<div class="headline">{story["title"]}</div>', unsafe_allow_html=True)
+        st.markdown(f"<div class='meta'>{story['publisher']} · <a href='{story['url']}' target='_blank'>Source</a></div>", unsafe_allow_html=True)
+
+        if not st.session_state.source_text and not st.session_state.title_options and not st.session_state.title_error:
+            with st.spinner("Reading the source and creating title options…"):
+                try:
+                    st.session_state.source_text = article_text(story["url"])
+                    st.session_state.title_options = generate_titles(story, st.session_state.source_text)
+                except Exception as exc:
+                    st.session_state.title_error = str(exc)
+
+        if st.session_state.title_error:
+            st.error(st.session_state.title_error)
+            if st.button("Try title generation again", type="primary"):
+                st.session_state.title_error = None
+                st.rerun()
+
+        elif not st.session_state.approved_title:
+            st.subheader("Choose a title")
+            st.caption("Title options are generated for this story. Approve one before the script is written.")
+            st.session_state.title_choice = st.selectbox(
+                "Title options",
+                st.session_state.title_options,
+                index=0,
+                key="title_select",
+            )
+            if st.button("Approve title & generate script", type="primary", use_container_width=True):
+                st.session_state.approved_title = st.session_state.title_choice
+                st.session_state.script_error = None
+                with st.spinner("Writing the Short…"):
+                    try:
+                        script = generate_script(
+                            story,
+                            st.session_state.approved_title,
+                            st.session_state.source_text,
+                        )
+                        errors = validate_script(script, st.session_state.approved_title)
+                        if errors:
+                            st.session_state.script_error = " · ".join(errors)
+                            st.session_state.approved_title = None
+                        else:
+                            st.session_state.script_versions = [script]
+                            st.session_state.script_approved = None
+                    except Exception as exc:
+                        st.session_state.script_error = str(exc)
+                        st.session_state.approved_title = None
+                st.rerun()
+
+            if st.session_state.title_options:
+                st.caption(f"{len(st.session_state.title_options)} title options available.")
+                for option in st.session_state.title_options:
+                    st.markdown(f"- {option}")
+
+        elif st.session_state.script_error and not st.session_state.script_versions:
+            st.error(st.session_state.script_error)
+            st.caption("No automatic correction was applied.")
+            if st.button("Generate script again", type="primary"):
+                st.session_state.script_error = None
+                with st.spinner("Writing the Short…"):
+                    try:
+                        script = generate_script(
+                            story,
+                            st.session_state.approved_title,
+                            st.session_state.source_text,
+                        )
+                        errors = validate_script(script, st.session_state.approved_title)
+                        if errors:
+                            st.session_state.script_error = " · ".join(errors)
+                        else:
+                            st.session_state.script_versions = [script]
+                    except Exception as exc:
+                        st.session_state.script_error = str(exc)
+                st.rerun()
+
+        elif st.session_state.script_versions:
+            st.subheader("Approved title")
+            st.markdown(f'<div class="headline">{st.session_state.approved_title}</div>', unsafe_allow_html=True)
+
+            columns = st.columns(len(st.session_state.script_versions))
+            for index, version in enumerate(st.session_state.script_versions):
+                with columns[index]:
+                    st.markdown(f'<div class="script-card"><h4>Version {index + 1}</h4><div class="screen-headline">{version["opening_headline"]}</div></div>', unsafe_allow_html=True)
+                    for number, slide in enumerate(version["slides"], 1):
+                        st.markdown(f'<div class="script-card"><h4>Slide {number}</h4><div>{slide["voiceover"]}</div></div>', unsafe_allow_html=True)
+                    if st.session_state.script_approved == index:
+                        st.success("Approved for this test.")
+                    elif st.button(f"Approve Version {index + 1}", key=f"approve-script-{index}", use_container_width=True):
+                        st.session_state.script_approved = index
+                        st.rerun()
+
+            st.divider()
+            if st.session_state.script_approved is None:
+                if st.button("Improve / Re-run", type="primary", use_container_width=True):
+                    st.session_state.script_error = None
+                    with st.spinner("Creating a different editorial angle…"):
+                        try:
+                            improved = generate_script(
+                                story,
+                                st.session_state.approved_title,
+                                st.session_state.source_text,
+                                improve=True,
+                            )
+                            errors = validate_script(improved, st.session_state.approved_title)
+                            if errors:
+                                st.session_state.script_error = " · ".join(errors)
+                            else:
+                                st.session_state.script_versions = (
+                                    [st.session_state.script_versions[0], improved]
+                                )
+                        except Exception as exc:
+                            st.session_state.script_error = str(exc)
+                    st.rerun()
+                if st.session_state.script_error:
+                    st.error(st.session_state.script_error)
+            else:
+                st.success("Scriptwriter test approved.")
