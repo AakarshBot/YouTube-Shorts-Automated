@@ -67,18 +67,18 @@ def article_text(story):
         )
         with urlopen(req, timeout=12) as response:
             raw = response.read(300000).decode("utf-8", "ignore")
-        article = re.search(r"<article\\b[\\s\\S]*?</article>", raw, flags=re.I)
+        article = re.search(r"<article\b[\s\S]*?</article>", raw, flags=re.I)
         target = article.group(0) if article else raw
         parser = _Text()
-        parser.feed(re.sub(r"<head[\\s\\S]*?</head>", " ", target, flags=re.I))
-        text = re.sub(r"\\s+", " ", html.unescape(" ".join(parser.parts))).strip()
+        parser.feed(re.sub(r"<head[\s\S]*?</head>", " ", target, flags=re.I))
+        text = re.sub(r"\s+", " ", html.unescape(" ".join(parser.parts))).strip()
         if len(text) >= 300:
             return text[:20000]
     except (HTTPError, URLError, TimeoutError):
         pass
 
     summary = re.sub(r"\\s+", " ", html.unescape(str(story.get("description") or ""))).strip()
-    if len(summary) >= 80:
+    if summary:
         return f'{story["title"]}. {summary}'
     raise RuntimeError("The selected story has no readable source evidence.")
 
