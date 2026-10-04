@@ -99,9 +99,9 @@ If the primary source itself is unreadable, the automatic related-source run sti
 - The final Short can use one source or multiple supporting sources.
 - Multiple sources may be synthesised when they support the same story.
 - Choose one strongest angle rather than combining unrelated angles.
-- Use as many slides as the story needs. There is no fixed slide count.
+- The final Short must contain exactly 4 or 5 slides: minimum 4, maximum 5.
 - Every slide must add important information.
-- Do not create filler, repetition or artificial sentence splits just to increase slide count.
+- Do not create filler, repetition or artificial sentence splits just to reach 4 or 5 slides.
 - Slide 1 spoken narration must contain fewer than 14 words.
 - Total spoken narration must be 65 words or fewer. This is the Scriptwriter proxy for a Short under 30 seconds.
 - The Audio stage may slightly speed the final voice when the finished audio is only marginally above 30 seconds.
@@ -179,7 +179,7 @@ A non-ready result contains:
 ### Deterministic validation
 
 Python enforces only the rules that are objective:
-- Ready output has at least one slide.
+- Ready output has 4 or 5 slides.
 - Slide 1 has fewer than 14 words.
 - Total narration is 65 words or fewer.
 - Every slide has spoken narration.
