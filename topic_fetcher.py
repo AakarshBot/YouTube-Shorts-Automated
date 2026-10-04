@@ -84,7 +84,7 @@ def fetch_topics(genre, limit=20):
     if genre not in GENRES:
         raise ValueError(f"Unknown genre: {genre}")
 
-    gnews = GNews(language="en", country="IN", max_results=100, period="3d")
+    gnews = GNews(language="en", country="IN", max_results=100)
     with ThreadPoolExecutor(max_workers=len(GENRES[genre])) as pool:
         raw = [item for batch in pool.map(gnews.get_news, GENRES[genre]) for item in batch]
 
