@@ -38,123 +38,165 @@ Do not reopen unless a later requirement or regression requires it.
 - Do not add Playwright, another news service, a custom Google News client, copied GNews code or another dependency merely to reduce runtime.
 - The remaining GNews URL-resolution cost is accepted; sub-20-second first-fetch time is not guaranteed under these constraints.
 
-## Scriptwriter — ACTIVE
+## Scriptwriter — SPEC LOCKED / IMPLEMENTATION UNDER TEST
 
-The previous Scriptwriter was deleted because it let a chosen YouTube title influence the story.
+The selected Topic Fetcher headline is sent to Scriptwriter as the story to investigate.
 
-Core rule:
+### Core editorial rule
 
-**Story first. Packaging second.**
+**Understand the full story first. Rewrite the Short from scratch second. Package it third.**
 
-The selected Topic Fetcher headline and source evidence are the inputs. No approved YouTube title is supplied to story generation.
+The writer must:
+- Read the available source material.
+- Understand what actually happened.
+- Find the most interesting part of the story that can genuinely become a Short.
+- Choose one strongest editorial angle.
+- Rewrite the narration from scratch after understanding the story.
+- Never simply expand, paraphrase or prolong the Topic Fetcher headline.
+- Use the Topic Fetcher headline as the starting subject, not as a finished script or approved YouTube title.
 
-### Workflow
+### Source workflow
 
-Selected Topic Fetcher headline
-→ direct publisher-page attempt
-→ GNews description fallback when needed
-→ one direct Groq generation of the complete Short
-→ deterministic validation
-→ manual title/version approval.
+Primary run:
+1. Read the exact Topic Fetcher source URL.
+2. Use readable article text when available; fall back to the Topic Fetcher GNews description when necessary.
+3. Ask the model whether the available evidence is enough to make a genuine Short.
+4. If enough, generate the complete Short and all packaging.
+5. If not enough, return status=needs_more_sources with a concise reason and no script/packaging.
 
-The generation prompt is explicitly ordered to understand the story first, write the Short second, then package the completed story.
+Automatic additional-source run:
+- Only happens when the primary evidence is not enough.
+- Uses the existing GNews dependency already used by Topic Fetcher.
+- Searches for related reporting from the selected headline.
+- Reads the usable results and combines them with the primary evidence.
+- Generates the Short from the combined sources.
+- Does not perform another automatic search after this pass.
 
-### Story requirements
+Manual additional-source run:
+- If the combined primary + automatic sources are still insufficient, the dashboard asks the user for additional source URLs.
+- The dashboard accepts multiple URLs, one per line.
+- The writer reads usable manual URLs and combines them with all previously collected sources.
+- This is the second and final additional-source run.
+- If the combined evidence is still insufficient, stop and tell the user that there is not enough information to create a genuine Short.
+- Do not invent a script, titles, description, hashtags or comment just to produce an output.
 
-- Read all available source evidence.
-- Determine what actually happened.
-- Identify the important facts, people, teams, organisations, events and context.
-- Choose the strongest evidence-backed editorial angle independently.
-- Write 4 slides normally; use 5 only when necessary.
-- Slide 1 spoken narration: fewer than 14 words.
-- Total narration: 30-second target, maximum 75 words.
-- Every slide adds important information.
-- Four slides normally cover roughly 90% of the important source.
-- Reorder and synthesise facts; do not mechanically follow source paragraphs.
-- Preserve important names, teams, organisations, events and numbers.
-- Name central people explicitly.
-- If a person's remark is central, identify that person and preserve the remark's meaning and tone.
-- Never replace an available name with vague labels such as “a legend”, “a star”, “the veteran” or “the player”.
-- Do not let the Topic Fetcher headline dictate the angle.
-- Do not turn praise into criticism, advice into a demand, possibility into certainty or a detail into a wider narrative without evidence.
-- Do not invent controversy, criticism, pressure, doubts about form, legacy concerns, retirement implications, motives, reactions, stakes or consequences.
-- Do not invent facts, statistics, quotes, predictions or conclusions.
-- Retention must come from actual facts, context, contrast, consequence, significance or surprise.
-- No filler, repetition, generic AI-news language or clickbait.
+If the primary source itself is unreadable, the automatic related-source run still happens rather than failing immediately.
+
+### Story rules
+
+- The final Short can use one source or multiple supporting sources.
+- Multiple sources may be synthesised when they support the same story.
+- Choose one strongest angle rather than combining unrelated angles.
+- Use as many slides as the story needs. There is no fixed slide count.
+- Every slide must add important information.
+- Do not create filler, repetition or artificial sentence splits just to increase slide count.
+- Slide 1 spoken narration must contain fewer than 14 words.
+- Total spoken narration must be 65 words or fewer. This is the Scriptwriter proxy for a Short under 30 seconds.
+- The Audio stage may slightly speed the final voice when the finished audio is only marginally above 30 seconds.
+- Retention should come from real facts, context, contrast, consequence, significance or surprise in the sources.
+- Capture the important facts, context, names, teams, organisations, events, numbers and remarks needed to understand the story.
+- Reorder and synthesise facts as needed; do not mechanically follow article paragraphs.
+- Do not invent facts, statistics, quotes, reactions, motives, criticism, controversy, pressure, predictions or consequences.
+- Preserve the meaning and tone of important remarks.
+- If a person is identified in the source, use their proper name.
+- If a source calls someone a legend, icon, veteran or similar and the identity is known, the writer must still name the person properly in the Short. Never replace a known person's name with a generic label.
 
 ### Opening screen headline
 
 - Exactly 3 or 4 words.
 - Story-specific.
-- No filler.
-- Separate from spoken narration.
+- Separate from the spoken Slide 1 narration.
 
 ### Packaging
 
-Packaging is created from the completed Short in the same generation.
+When the status is ready, the same Scriptwriter generation also produces:
+- At least two YouTube title options.
+- One natural description.
+- Relevant hashtags.
+- One story-specific first/creator comment.
 
-Every result contains:
-- at least two YouTube title options
-- one natural description
-- relevant hashtags
-- one story-specific first/creator comment.
+Packaging is written only after the completed Short is understood.
 
 Titles must:
-- accurately represent the completed Short
-- use genuinely different packaging angles
-- put important names and story terms early
-- remain concise and natural
-- contain no clickbait, fake curiosity, excessive capitals or unnecessary emoji
-- introduce no facts absent from the source/story.
+- Accurately represent the completed Short.
+- Use genuinely different packaging angles.
+- Put important names and story terms early.
+- Remain concise and natural.
+- Contain no clickbait, fake curiosity, excessive capitals or unnecessary emoji.
+- Introduce no unsupported facts.
 
-The first comment must be specific to the actual story and invite a genuine response. No generic CTA boilerplate.
+Description:
+- Explain the actual story naturally.
+- Add no unsupported facts.
+
+Hashtags:
+- Relevant only.
+
+First comment:
+- Specific to the story.
+- Invites a genuine response.
+- No generic CTA boilerplate.
 
 ### Improve / Re-run
 
 - Manual only.
-- Never automatic.
-- Uses the same source evidence.
-- Must create a genuinely different editorial angle or narrative spine.
-- Must not merely swap words.
-- Original and improved versions stay visible.
-- Packaging is regenerated with the improved Short.
-- Both versions follow the same factual, slide-count, headline and duration requirements.
+- Available before approval.
+- Uses the same source evidence already collected.
+- The previous version is supplied to the writer for comparison.
+- The new version must use a genuinely different editorial angle or narrative spine.
+- It must not merely swap words, reorder sentences or lightly rephrase the same script.
+- The improved version follows all normal story, timing, slide, factual and packaging rules.
+- Original and improved versions remain visible for manual QC.
+- Approved title/version is never supplied to story generation.
 
-### Validation
+### Output
 
-Python enforces only:
-- 4 or 5 slides
-- first spoken slide under 14 words
-- narration at or below 75 words
-- every slide has narration
-- opening headline has 3 or 4 words
-- duplicate spoken slides rejected
-- at least two title options
-- description, hashtags and first comment present
-- malformed output rejected
+A ready result contains:
+- opening_headline
+- slide-by-slide voiceover
+- multiple YouTube title options
+- description
+- hashtags
+- first/creator comment
 
-Do not add hook scores, angle scores, title-ranking systems, critic passes, claim graphs, personas, automatic rewrite chains, provider routers or other large validation frameworks.
+A non-ready result contains:
+- status=needs_more_sources
+- a concise reason
+- no script or packaging.
 
-### Source handling
+### Deterministic validation
 
-Each selected Topic Fetcher headline carries title, exact URL, publisher, published_at and GNews description.
+Python enforces only the rules that are objective:
+- Ready output has at least one slide.
+- Slide 1 has fewer than 14 words.
+- Total narration is 65 words or fewer.
+- Every slide has spoken narration.
+- Opening headline has 3 or 4 words.
+- Duplicate spoken slides are rejected.
+- At least two title options exist.
+- Description, hashtags and first comment exist.
+- status=needs_more_sources requires a reason.
+- Malformed output is rejected.
 
-Scriptwriter:
-1. Attempts the exact publisher URL directly.
-2. Uses the article element when available; otherwise readable page text.
-3. Falls back to the headline plus any non-empty GNews description when the publisher page is blocked, malformed or unreadable.
-4. Fails only when no usable publisher text and no usable GNews description exist.
-5. Does not decode Google News redirects or add article-extraction dependencies.
+Do not add hook scores, angle scores, source-coverage scores, critic passes, claim graphs, personas, automatic rewrite chains, title-ranking systems, provider routers or other large validation frameworks.
 
-### Test dashboard
+## Test dashboard
 
-- Manually select a Topic Fetcher headline.
-- Generate the Short first from the source.
-- Show the completed script and its generated title options/metadata.
-- Manually choose the title.
-- Manually approve the version.
-- Improve/Re-run is available before approval.
-- The approved title is stored for later handoff only. It is never passed into story generation.
+The Scriptwriter test flow is:
+
+1. Manually select a Topic Fetcher headline.
+2. Scriptwriter reads the primary source and builds the Short from scratch.
+3. If the primary source is insufficient, Scriptwriter automatically searches related GNews sources once.
+4. If the combined evidence is still insufficient, dashboard asks for additional source URLs.
+5. User can paste multiple URLs, one per line.
+6. Scriptwriter performs the manual-source run using the new URLs plus all previously collected evidence.
+7. If the story is still not sufficient after that second additional-source run, dashboard stops with a clear Not enough information to create a Short message and the writer's reason.
+8. When ready, dashboard shows only the completed script and packaging needed for QC; raw article text is not displayed.
+9. Dashboard shows opening headline, every slide, total source count, title options, description, hashtags and first comment.
+10. User manually chooses a title and approves the version.
+11. Improve / Re-run is available before approval.
+
+The selected Topic Fetcher headline remains the starting story input. The approved title is stored for later handoff only and is never passed into Scriptwriter generation.
 
 ## Top-5 — PLANNED
 
@@ -173,8 +215,8 @@ Audio, Subtitles, Visuals, Renderer and Upload are not active. Preserve their ex
 
 - PROJECT_CONTEXT.md — current source of truth.
 - topic_fetcher.py — completed Topic Fetcher.
-- app.py — Test dashboard.
-- scriptwriter.py — source-first Scriptwriter.
+- app.py — Test dashboard and Scriptwriter flow.
+- scriptwriter.py — source-first Scriptwriter under test.
 - tests/test_topic_fetcher.py — Topic Fetcher tests.
 - tests/test_scriptwriter.py — Scriptwriter tests.
 - .github/workflows/test.yml — deterministic CI.
