@@ -68,10 +68,22 @@ Every first-run Scriptwriter result must contain all of these:
 
 - Opening screen headline: exactly 3–4 words, strictly about the selected story, zero filler words. It is large screen text shown during the first second of Slide 1 and is separate from the spoken narration.
 - Slide-by-slide spoken script: 4 or 5 slides.
-- One YouTube title that accurately packages the actual story without unsupported clickbait.
+- Multiple YouTube title options in meaningfully different editorial angles, with each title accurate, concise, Shorts-appropriate and based on the actual story.
 - One YouTube description that explains the actual story clearly and naturally.
 - Relevant hashtags only; no filler hashtags.
 - One first/creator comment designed to start a genuine conversation about this specific story.
+
+### YouTube title options
+
+The Scriptwriter must generate multiple title options rather than one title.
+
+- Each option must accurately represent the selected story and must not add unsupported claims.
+- Options should use genuinely different packaging angles rather than superficial word swaps.
+- The model should consider a mix of strong Shorts-friendly approaches such as direct factual/result-led, consequence-led, and intrigue-led framing where the story supports them.
+- Titles should remain concise and put the most important story words early.
+- Avoid clickbait, misleading framing, excessive ALL CAPS and unnecessary emoji.
+- The dashboard will show all generated title options so the user can choose the strongest one during QC.
+- Exact number of title options is intentionally not yet locked; do not assume a count until explicitly approved.
 
 ### First/creator comment
 
@@ -88,17 +100,15 @@ The first comment is an editorial output, not a generic CTA.
 
 The dashboard will provide an Improve/Re-run option after the first draft.
 
-Improve is not an automatic response to a validation failure and must not become a correction loop.
-
-A re-run must:
-
-- Re-read the same source evidence.
-- Produce a genuinely different editorial angle or narrative spine.
-- Avoid simply changing words while keeping the same structure and opening.
+- Improve is a user-requested second editorial version, not an automatic response to a validation failure and not a correction loop.
+- The original draft and the improved draft must both remain visible on the dashboard.
+- The user selects which version to keep.
+- A re-run must re-read the same source evidence and produce a genuinely different editorial angle or narrative spine.
+- Avoid simply changing words while preserving the same structure and opening.
 - Preserve the same factual, slide-count, headline, packaging and duration requirements.
 - Keep the previous draft only as context for what should not be repeated; the original source remains the factual authority.
-
-Examples of valid angle changes include result-led, pressure-led, consequence-led, conflict/response-led, comparison-led, human-angle-led or another evidence-backed angle that materially changes the storytelling approach.
+- Valid angle changes can include result-led, pressure-led, consequence-led, conflict/response-led, comparison-led, human-angle-led or another evidence-backed approach that materially changes the storytelling.
+- Title options and the first comment should also be regenerated to fit the new angle rather than copied from the original version.
 
 ### Scriptwriter intelligence and validation
 
@@ -110,7 +120,7 @@ The model should satisfy the editorial brief before returning the first result. 
 - Total estimated narration at or below the writer's 30-second target.
 - Every slide contains substantive narration.
 - Opening screen headline is exactly 3–4 story-specific words with no filler.
-- Title, description, hashtags and first comment are present.
+- Multiple title options, description, hashtags and first comment are present.
 - Basic obvious-quality checks such as empty fields, gross slide duplication, clear retention-bait phrasing and unsupported numeric details may be rejected.
 
 Do not add hook-scoring systems, editorial-angle scoring systems, title-ranking systems, personas, critic passes, automatic rewrite chains, provider routers, source-claim graphs or other large validation frameworks unless a later requirement proves one is necessary.
@@ -125,13 +135,13 @@ Do not add runtime dependencies or new API services solely to make Scriptwriter 
 
 ### Scriptwriter architecture
 
-Preferred flow:
+Preferred first-run flow:
 
 Selected Topic Fetcher story → source/article text → one structured Scriptwriter generation → minimal deterministic validation → dashboard.
 
-Improve/Re-run uses the same source with a different requested editorial angle.
+Improve/Re-run uses the same source with a different requested editorial angle and displays the new version alongside the original for manual selection.
 
-One first-run generation should produce the entire package together so the spoken script, opening screen headline, YouTube title, description, hashtags and first comment are editorially coherent.
+One first-run generation should produce the entire package together so the spoken script, opening screen headline, YouTube title options, description, hashtags and first comment are editorially coherent.
 
 ## Top-5
 
