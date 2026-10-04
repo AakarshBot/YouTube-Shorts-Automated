@@ -1,0 +1,18 @@
+name: Test Topic Fetcher
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q
+      - run: python -c "from topic_fetcher import GENRES, fetch_topics; [(print(g, len(fetch_topics(g))) or (_ == 20)) for _ in [len(fetch_topics(g))] for g in GENRES]"
