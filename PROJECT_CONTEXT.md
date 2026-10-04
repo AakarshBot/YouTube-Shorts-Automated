@@ -12,6 +12,7 @@ Current source of truth. Replace this file completely after every project change
 - The local Groq key is read directly from the repo-root .env as GROQ_API_KEY when it is not already in the environment. Never store the key itself in code or CI. Groq requests use a browser-style User-Agent because the API edge can reject bare Python urllib clients with Cloudflare error 1010.
 - English only for now.
 - Final editorial approval is manual.
+- Dashboard startup must not eagerly import stage modules that are not needed for the current page. Keep stage imports direct and local to the page/action that uses them.
 
 ## Factory
 
@@ -285,7 +286,7 @@ Subtitles, Visuals, Renderer and Upload are not active. Preserve their existing 
 
 - PROJECT_CONTEXT.md — current source of truth.
 - topic_fetcher.py — completed Topic Fetcher.
-- app.py — Test dashboard through Audio. Scriptwriter QC fields are edited directly in the page; Audio generation is explicitly started from the Audio page. Dashboard logic is kept direct; no stage wrapper/helper functions.
+- app.py — Test dashboard through Audio. Pipeline modules are loaded only when their stage is needed; Scriptwriter QC fields are edited directly in the page; Audio generation is explicitly started from the Audio page. Dashboard logic is kept direct; no stage wrapper/helper functions.
 - scriptwriter.py — source-first, desk-aware Scriptwriter approved at 6/10; pending multiple test cases across desks.
 - audio.py — local Chatterbox narration for approved Scriptwriter slides; implemented and pending local generation/QC.
 - tests/test_topic_fetcher.py — Topic Fetcher tests.
