@@ -22,6 +22,7 @@ jobs:
           regional = fetch_topics("Cricket — India / Pakistan / Sri Lanka / Asia")
           regional = {item["topic"]: item for item in regional}
           assert {"India", "Pakistan", "Sri Lanka"} <= set(regional)
+          assert len(regional["India"]["headlines"]) >= 25
           assert len(regional["Pakistan"]["headlines"]) >= 5
           assert len(regional["Sri Lanka"]["headlines"]) >= 5
 

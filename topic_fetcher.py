@@ -171,7 +171,7 @@ def fetch_topics(genre, exclude_urls=()):
         news = GNews(
             language="en",
             country=country,
-            max_results=25 if genre == "Cricket — India / Pakistan / Sri Lanka / Asia" and label == "India" and not blocked_urls else 20 if not blocked_urls else 40,
+            max_results=40 if blocked_urls or (genre == "Cricket — India / Pakistan / Sri Lanka / Asia" and label == "India") else 20,
             max_retries=1,
         )
         return label, news.get_news(query)

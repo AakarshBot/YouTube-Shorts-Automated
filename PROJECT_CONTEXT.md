@@ -54,7 +54,7 @@ Sports opens:
 #### Regional Cricket
 
 Country pills:
-- India: up to 20 headlines
+- India: target 25 headlines
 - Pakistan: target at least 5
 - Sri Lanka: target at least 5
 - Bangladesh: include when fresh qualifying stories exist
@@ -98,7 +98,7 @@ A keyword mention alone is not the retrieval strategy. Queries should be specifi
 - Preserve title, URL, publisher and publication time.
 - Normalise URLs before dedupe.
 - Search 20 more excludes previously shown URLs and merges unseen headlines into the existing pill.
-- First fetch requests up to 20 GNews results per query; Search 20 more can request up to 40.
+- First fetch requests up to 40 GNews results for India to support its 25-headline target and up to 20 for other first-pass queries; Search 20 more can request up to 40.
 - At most 8 GNews searches run concurrently.
 - GNews rate-limit retries are limited to one.
 - No cache, alternate news provider or runtime dependency is introduced.
@@ -154,7 +154,7 @@ tests/test_topic_fetcher.py checks:
 - installs runtime dependencies plus pytest
 - runs unit tests
 - performs a real Regional Cricket fetch and requires India/Pakistan/Sri Lanka
-- requires at least 5 Pakistan headlines and 5 Sri Lanka headlines
+- requires at least 25 India headlines, 5 Pakistan headlines and 5 Sri Lanka headlines
 - prints returned India cricket headlines for manual inspection in the CI log
 - performs real Niche Sports, News and Technology fetches
 - verifies returned pills belong to configured structures
