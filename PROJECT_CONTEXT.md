@@ -34,10 +34,11 @@ Do not reopen unless a later requirement or regression requires it.
 - Maintained ranahaani/GNews is the approved news source.
 - Independent GNews searches run concurrently with no artificial 8-worker ceiling.
 - Queries, filters, grouping, story counts, handovers and output fields remain unchanged.
-- Every selectable headline carries title, exact source URL, publisher, published_at and GNews description.
-- Exact source URLs are preserved; do not lowercase or strip query parameters.
+- Every selectable headline carries its title, Google News result URL, publisher, published_at and GNews description.
+- Topic Fetcher does not resolve article URLs during bulk search. URL resolution happens only after the user selects a story, immediately before Scriptwriter source reading.
+- Once resolved, preserve the selected story's exact publisher URL; do not lowercase or strip query parameters.
 - Do not add Playwright, another news service, a custom Google News client, copied GNews code or another dependency merely to reduce runtime.
-- The remaining GNews URL-resolution cost is accepted; sub-20-second first-fetch time is not guaranteed under these constraints.
+- The bulk search path is the performance-sensitive path; avoid per-article network work after GNews returns its RSS results.
 
 ## Scriptwriter — SPEC LOCKED / APPROVED — 6/10 — PENDING MULTIPLE TEST CASES
 
@@ -242,10 +243,12 @@ Stage 3 is narration only. No music, sound effects or other audio layers.
 - A single channel narrator is preferred for long-term identity.
 - If `audio_reference.wav` exists in the repo root, it is used as the narrator reference. `AUDIO_REFERENCE` may override that path. If no reference exists, the model's built-in voice is used.
 - The reference recording is optional for the first test but recommended for the long-term channel voice.
+- Reference conditioning is prepared once at the start of an Audio generation run and reused for all slides. Do not re-process the reference for every slide.
 - Reference audio must not be committed. It is ignored by git.
 
 ### Delivery
 - Generate audio separately for every approved Scriptwriter slide.
+- Prepare any narrator reference conditioning once per run, then generate all slides from the prepared conditioning.
 - Keep the narrator identity consistent while varying delivery modestly by slide.
 - Slide 1 receives a stronger opening delivery.
 - Final slides receive a small payoff emphasis.
@@ -263,6 +266,7 @@ Stage 3 is narration only. No music, sound effects or other audio layers.
 - Generate one complete `full.wav` plus one `slide_XX.wav` for each slide.
 - Local generated files live under `generated_audio/` and are not committed.
 - Output paths are derived from the script content so Redo Audio replaces the current take for that Short rather than creating uncontrolled file growth.
+- The reference conditioning optimisation is required for acceptable local Audio runtime; re-running reference preparation per slide is not allowed.
 - Audio output remains available as the handoff for Subtitles and later stages.
 
 ### Test dashboard
