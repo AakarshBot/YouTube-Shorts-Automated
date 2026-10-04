@@ -38,7 +38,11 @@ The 7/10 rating is the approved manual-QC rating. Do not reopen or broaden Topic
 
 ### Scriptwriter — NEXT ACTIVE STAGE
 
-The Scriptwriter takes the manually selected Topic Fetcher story and its source URL/article text and turns it into a complete YouTube Short editorial package.
+The current Scriptwriter work is limited to the Scriptwriter Test page.
+
+The Test dashboard is sequential: manually selecting a headline in Topic Fetcher is the Scriptwriter trigger. Standalone Scriptwriter tests will only be added when explicitly requested.
+
+The Test page first generates title options for the selected story. The user manually approves one title. Only after that approval is the opening screen headline and spoken script generated.
 
 ### Non-negotiable editorial rules
 
@@ -83,7 +87,7 @@ The Scriptwriter must generate multiple title options rather than one title.
 - Titles should remain concise and put the most important story words early.
 - Avoid clickbait, misleading framing, excessive ALL CAPS and unnecessary emoji.
 - The dashboard will show all generated title options so the user can choose the strongest one during QC.
-- Exact number of title options is intentionally not yet locked; do not assume a count until explicitly approved.
+- There is no fixed number of title options. Generate and show as many as make editorial sense for the story, then let manual QC choose one.
 
 ### First/creator comment
 
@@ -133,15 +137,13 @@ Topic Fetcher supplies the selected story's source URL and source metadata. The 
 
 Do not add runtime dependencies or new API services solely to make Scriptwriter more elaborate. Prefer existing repository capabilities and direct standard-library/simple implementations. A new dependency requires explicit approval.
 
-### Scriptwriter architecture
+### Scriptwriter architecture for the current Test page
 
-Preferred first-run flow:
+Selected Topic Fetcher headline → source article → title options → manual title approval → one structured Scriptwriter generation → minimal deterministic validation → Test-page preview.
 
-Selected Topic Fetcher story → source/article text → one structured Scriptwriter generation → minimal deterministic validation → dashboard.
+Improve/Re-run uses the same selected story/source and approved title, produces a genuinely different editorial angle, and keeps the original and improved versions available for manual selection.
 
-Improve/Re-run uses the same source with a different requested editorial angle and displays the new version alongside the original for manual selection.
-
-One first-run generation should produce the entire package together so the spoken script, opening screen headline, YouTube title options, description, hashtags and first comment are editorially coherent.
+The current Test page generates and previews only the approved title, opening screen headline and spoken script. Description, hashtags and first/creator comment are deferred to Upload QC.
 
 ## Top-5
 
