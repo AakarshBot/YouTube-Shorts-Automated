@@ -59,37 +59,44 @@ def article_text(url):
 
     parsed = urlsplit(url)
     if parsed.netloc.lower().endswith("news.google.com"):
-        query_url = parse_qs(parsed.query).get("url", [None])[0]
-        if query_url:
-            url = query_url
-        else:
+        url = parse_qs(parsed.query).get("url", [None])[0] or url
+        if "news.google.com" in url:
             token = parsed.path.rstrip("/").split("/")[-1]
-            if token:
-                payload = (
-                    '[[["Fbv4je","[\"garturlreq\",[[\"en-US\",\"US\",'
-                    '[\"FINANCE_TOP_INDICES\",\"WEB_TEST_1_0_0\"],null,null,1,1,'
-                    '\"US:en\",null,180,null,null,null,null,null,0,null,null,'
-                    '[1608992183,723341000]],\"en-US\",\"US\",1,[2,3,4,8],1,0,'
-                    '\"655000234\",0,0,null,0],\"' + token + '\"]",null,"generic"]]]'
+            if not token:
+                raise RuntimeError("Could not resolve the Google News source URL.")
+            req = Request(
+                f"https://news.google.com/articles/{token}",
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
+            try:
+                with urlopen(req, timeout=12) as response:
+                    page = response.read(200000).decode("utf-8", "ignore")
+                node = re.search(
+                    rf'<div[^>]*data-n-a-id=["\']{re.escape(token)}["\'][^>]*>',
+                    page,
+                    re.I,
                 )
+                signature = re.search(r'data-n-a-sg=["\']([^"\']+)["\']', node.group(0), re.I) if node else None
+                timestamp = re.search(r'data-n-a-ts=["\']([^"\']+)["\']', node.group(0), re.I) if node else None
+                if not signature or not timestamp:
+                    raise RuntimeError("Could not resolve the Google News source URL.")
+                inner = (
+                    '["garturlreq",[["X","X",["X","X"],null,null,1,1,"US:en",null,1,null,null,'
+                    'null,null,null,0,1],"X","X",1,[1,1,1],1,1,null,0,0,null,0],'
+                    f'"{token}",{timestamp.group(1)},"{signature.group(1)}"]'
+                )
+                payload = f"f.req={quote(json.dumps([["Fbv4je", inner]]))}".encode()
                 req = Request(
-                    "https://news.google.com/_/DotsSplashUi/data/batchexecute?rpcids=Fbv4je",
-                    data=f"f.req={quote(payload)}".encode(),
-                    headers={
-                        "User-Agent": "Mozilla/5.0",
-                        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-                        "Referer": "https://news.google.com/",
-                    },
+                    "https://news.google.com/_/DotsSplashUi/data/batchexecute",
+                    data=payload,
+                    headers={"Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"},
                     method="POST",
                 )
-                try:
-                    with urlopen(req, timeout=12) as response:
-                        decoded = response.read(100000).decode("utf-8", "ignore")
-                    match = re.search(r'\[\\"garturlres\\",\\"(https?://.+?)\\",', decoded)
-                    if match:
-                        url = match.group(1).replace("\\/", "/")
-                except (HTTPError, URLError, TimeoutError):
-                    pass
+                with urlopen(req, timeout=12) as response:
+                    result = response.read(100000).decode("utf-8", "ignore").split("\n\n")[1]
+                url = json.loads(json.loads(result)[:-2][0][2])[1]
+            except (HTTPError, URLError, TimeoutError, ValueError, IndexError, KeyError, TypeError, json.JSONDecodeError) as exc:
+                raise RuntimeError("Could not resolve the Google News source URL.") from exc
 
     try:
         req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
