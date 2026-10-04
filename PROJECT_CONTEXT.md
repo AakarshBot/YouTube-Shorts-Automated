@@ -36,6 +36,12 @@ Topic Fetcher is complete enough to move to Scriptwriter.
 
 The 7/10 rating is the approved manual-QC rating. Do not reopen or broaden Topic Fetcher work unless a later requirement or regression requires it.
 
+### Topic Fetcher runtime optimisation — ACTIVE
+
+The Topic Fetcher's editorial behaviour is unchanged. Runtime work is limited to execution speed: independent GNews pill searches now run concurrently with no artificial 8-worker ceiling. No queries, filters, grouping, story counts, handovers or output fields are changed.
+
+The main remaining runtime cost is inside maintained GNews 0.8.2: its RSS result processing attempts URL resolution for returned Google News links, including a separate HTTP HEAD request per article when Playwright is unavailable. The project must not bypass or replace GNews with a custom news client, add Playwright or add another service merely to improve speed. A sub-20-second first fetch therefore cannot be guaranteed solely from application-side concurrency without changing one of those constraints.
+
 ### Scriptwriter — NEXT ACTIVE STAGE
 
 The current Scriptwriter work is limited to the Scriptwriter Test page.

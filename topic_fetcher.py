@@ -229,7 +229,7 @@ def fetch_topics(genre, exclude_urls=()):
         )
         return label, news.get_news(query)
 
-    with ThreadPoolExecutor(max_workers=min(8, len(searches))) as pool:
+    with ThreadPoolExecutor(max_workers=len(searches)) as pool:
         grouped = {label: [] for label in source_map[genre]}
         seen = set(blocked_urls)
         for label, batch in pool.map(fetch, searches):
