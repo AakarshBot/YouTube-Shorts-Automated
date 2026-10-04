@@ -177,6 +177,10 @@ elif st.session_state.page == "topics":
                                 st.session_state.writer_reason = None
                                 st.session_state.auto_sources_attempted = False
                                 st.session_state.manual_sources_attempted = False
+                                st.session_state.audio_result = None
+                                st.session_state.audio_error = None
+                                st.session_state.audio_approved = False
+                                st.session_state.audio_run = 1
                                 st.session_state.page = "scriptwriter"
                                 st.rerun()
 
