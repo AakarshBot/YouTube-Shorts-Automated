@@ -37,6 +37,7 @@ Do not reopen unless a later requirement or regression requires it.
 - Queries, filters, grouping, story counts, handovers and output fields remain unchanged.
 - Every selectable headline carries its title, Google News result URL, publisher, published_at and GNews description.
 - Topic Fetcher does not resolve article URLs during bulk search. URL resolution happens only after the user selects a story, immediately before Scriptwriter source reading.
+- Selected-story resolution uses GNews's existing `resolve_url(url)` directly on the stored URL. Do not pass the already-normalised Topic Fetcher headline object through GNews `process_url()`; that function expects the raw feed shape (`source.href` and `link`) and is not the handoff format used by Topic Fetcher.
 - Once resolved, preserve the selected story's exact publisher URL; do not lowercase or strip query parameters.
 - Do not add Playwright, another news service, a custom Google News client, copied GNews code or another dependency merely to reduce runtime.
 - The bulk search path is the performance-sensitive path; avoid per-article network work after GNews returns its RSS results.
