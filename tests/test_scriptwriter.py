@@ -266,6 +266,6 @@ def test_script_only_redo_requests_script_fields_only(monkeypatch):
     assert "first_comment" not in schema["properties"]
     prompt = captured["body"]["messages"][1]["content"]
     assert "script-only redo" in prompt
-    assert "Do not create or change or output the YouTube titles" in prompt
+    assert "Do not generate packaging fields" in prompt
     assert result == generated
 
