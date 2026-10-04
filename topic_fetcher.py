@@ -4,6 +4,7 @@ from email.utils import parsedate_to_datetime
 import re
 
 from gnews import GNews
+from gnews.utils.constants import BASE_URL
 
 GENRES = {
     "Cricket — India / Pakistan / Sri Lanka / Asia": {
@@ -227,7 +228,18 @@ def fetch_topics(genre, exclude_urls=()):
             max_results=100 if genre == "Cricket — India / Pakistan / Sri Lanka / Asia" and label == "India" and not blocked_urls else 20 if not blocked_urls else 40,
             max_retries=1,
         )
-        return label, news.get_news(query)
+        encoded = "%20".join(query.split(" "))
+        feed = news._fetch_feed(f"{BASE_URL}/search?q={encoded}{news._ceid()}")
+        return label, [
+            {
+                "title": item.get("title", ""),
+                "url": item.get("link", ""),
+                "description": item.get("description", ""),
+                "publisher": item.get("source", ""),
+                "published date": item.get("published", ""),
+            }
+            for item in feed.entries[: news.max_results]
+        ]
 
     with ThreadPoolExecutor(max_workers=len(searches)) as pool:
         grouped = {label: [] for label in source_map[genre]}
