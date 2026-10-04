@@ -183,6 +183,7 @@ def test_generation_prompt_contains_locked_story_rules(monkeypatch):
     scriptwriter.generate_script(
         {"title": "Indian legend praises Rohit Sharma"},
         [{"title": "Source", "url": "https://example.com", "text": "A named source identifies Sunil Gavaskar."}],
+        "Cricket — India / Pakistan / Sri Lanka / Asia",
     )
     prompt = captured["body"]["messages"][1]["content"]
     assert "Write from scratch after understanding the full story." in prompt
@@ -190,3 +191,4 @@ def test_generation_prompt_contains_locked_story_rules(monkeypatch):
     assert "65 words or fewer" in prompt
     assert "use their proper name" in prompt
     assert "Approved YouTube title" not in prompt
+    assert "Cricket — India / Pakistan / Sri Lanka / Asia" in captured["body"]["messages"][0]["content"]
