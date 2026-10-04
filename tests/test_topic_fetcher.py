@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
+import topic_fetcher
 from topic_fetcher import BAD, DESK_PILLS, DESKS, GENRES, _group_india_rows
 
 SPORTS = "Sports"
@@ -57,6 +59,32 @@ def test_india_headlines_group_by_shared_title_entity():
     assert len(asia["headlines"]) == 2
     assert len(groups) == 3
     assert all(isinstance(row["published_at"], str) for group in groups for row in group["headlines"])
+
+
+def test_fetch_topics_uses_raw_gnews_urls(monkeypatch):
+    class FakeGNews:
+        def __init__(self, **kwargs):
+            self.max_results = kwargs["max_results"]
+
+        def _ceid(self):
+            return "&hl=en&gl=IN&ceid=IN:en"
+
+        def _fetch_feed(self, url):
+            assert "/search?q=" in url
+            return SimpleNamespace(entries=[{
+                "title": "India wins an important cricket match",
+                "link": "https://news.google.com/rss/articles/raw-selected-story",
+                "description": "GNews summary.",
+                "source": "Example",
+                "published": "Sun, 04 Oct 2026 10:00:00 GMT",
+            }])
+
+        def get_news(self, query):
+            raise AssertionError("Topic Fetcher must not resolve URLs through get_news()")
+
+    monkeypatch.setattr(topic_fetcher, "GNews", FakeGNews)
+    result = topic_fetcher.fetch_topics("News")
+    assert result[0]["headlines"][0]["url"] == "https://news.google.com/rss/articles/raw-selected-story"
 
 
 def test_source_url_is_not_lowercased_or_stripped():
