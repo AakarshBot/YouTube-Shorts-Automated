@@ -82,6 +82,7 @@ Current implementation:
 - Runs the configured genre queries concurrently.
 - Uses the package's `get_news()` method directly; there is no `_google()` or equivalent retrieval wrapper.
 - Uses only lightweight local Python logic for cleanup, entity extraction, related-headline detection and ranking.
+- Runtime dependencies for Topic Fetcher are only `gnews` plus the dashboard's `streamlit` dependency.
 - Does not make an AI classification call.
 - Does not use GDELT.
 - Does not implement a custom Google News client.
@@ -171,5 +172,6 @@ No Live implementation has been built.
 - The previous custom GDELT fallback was removed.
 - The previous `_google()` and `_gdelt()` retrieval wrappers were removed.
 - The implementation now depends directly on the maintained `gnews` package for Google News retrieval.
+- `requirements.txt` contains only the dependencies currently needed by the rebuilt Test shell: `streamlit` and `gnews`.
 - No copied code from `ranahaani/GNews` is present.
 - No new compatibility layer or wrapper was introduced.
