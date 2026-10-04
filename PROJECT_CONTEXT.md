@@ -204,10 +204,11 @@ The Scriptwriter test flow is:
 6. Scriptwriter performs the manual-source run using the new URLs plus all previously collected evidence.
 7. If the story is still not sufficient after that second additional-source run, dashboard stops with a clear Not enough information to create a Short message and the writer's reason.
 8. When ready, dashboard shows only the completed script and packaging needed for QC; raw article text is not displayed.
-9. Dashboard shows opening headline, every slide, total source count, title options, description, hashtags and first comment as editable QC fields.
-10. User can edit any of those fields, choose the strongest title, and approve the edited version or approve the generated version unchanged.
-11. Approval validates the edited package before the version becomes the Audio input.
-12. Improve / Re-run is available before approval.
+9. Dashboard shows the editable QC package in a fixed editorial order: opening headline, slide-by-slide voiceover, YouTube title options, strongest-title selection, description, hashtags, first comment, then approval.
+10. Voiceover slides are visually separated and explicitly labelled by slide number; packaging fields are kept in their own sections so the QC page does not visually mix script and metadata.
+11. User can edit any of those fields, choose the strongest title, and approve the edited version or approve the generated version unchanged.
+12. Approval validates the edited package before the version becomes the Audio input.
+13. Improve / Re-run is available before approval.
 
 The selected Topic Fetcher headline and selected desk/genre remain the starting story inputs. The approved title is stored for later handoff only and is never passed into Scriptwriter generation.
 
@@ -286,7 +287,7 @@ Subtitles, Visuals, Renderer and Upload are not active. Preserve their existing 
 
 - PROJECT_CONTEXT.md — current source of truth.
 - topic_fetcher.py — completed Topic Fetcher.
-- app.py — Test dashboard through Audio. Pipeline modules are loaded only when their stage is needed; Scriptwriter QC fields are edited directly in the page; Audio generation is explicitly started from the Audio page. Dashboard logic is kept direct; no stage wrapper/helper functions.
+- app.py — Test dashboard through Audio. Pipeline modules are loaded only when their stage is needed; Scriptwriter QC fields are edited directly in the page in a fixed editorial order with separated slide cards and packaging sections; Audio generation is explicitly started from the Audio page. Dashboard logic is kept direct; no stage wrapper/helper functions.
 - scriptwriter.py — source-first, desk-aware Scriptwriter approved at 6/10; pending multiple test cases across desks.
 - audio.py — local Chatterbox narration for approved Scriptwriter slides; implemented and pending local generation/QC.
 - tests/test_topic_fetcher.py — Topic Fetcher tests.
