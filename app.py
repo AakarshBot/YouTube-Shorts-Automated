@@ -23,6 +23,12 @@ div.stButton>button:hover{background:#f0ede5;color:#171915;border-color:#aaa599}
 div.stButton>button[kind="primary"]{background:#e8e3d8;color:#171915;border-color:#bdb6a8}
 div.stButton>button[kind="primary"]:hover{background:#ddd7ca;color:#171915}
 div.stButton>button:disabled{background:#efede8;color:#8a877f;border-color:#ddd9d0;opacity:1}
+.stTextInput input,.stTextArea textarea{background:#fffdf8 !important;color:#171915 !important;border-color:#cfcabe !important}
+.stTextInput input:focus,.stTextArea textarea:focus{background:#fffdf8 !important;color:#171915 !important;border-color:#aaa599 !important;box-shadow:none !important}
+.stTextInput input::placeholder,.stTextArea textarea::placeholder{color:#8a877f !important}
+.stSelectbox [data-baseweb="select"]>div{background:#fffdf8 !important;color:#171915 !important;border-color:#cfcabe !important}
+.stSelectbox [data-baseweb="select"] span{color:#171915 !important}
+.stSelectbox label,.stTextInput label,.stTextArea label{color:#171915 !important}
 </style>
 """, unsafe_allow_html=True)
 
