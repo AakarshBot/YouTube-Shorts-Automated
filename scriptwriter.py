@@ -12,10 +12,11 @@ MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 if not os.getenv("GROQ_API_KEY"):
     env_path = os.path.join(os.path.dirname(__file__), ".env")
     if os.path.isfile(env_path):
-        with open(env_path, encoding="utf-8") as env_file:
+        with open(env_path, encoding="utf-8-sig") as env_file:
             for line in env_file:
-                if line.strip().startswith("GROQ_API_KEY="):
-                    os.environ["GROQ_API_KEY"] = line.split("=", 1)[1].strip().strip("'").strip('"')
+                name, separator, value = line.strip().partition("=")
+                if separator and name.strip().removeprefix("export ").strip() == "GROQ_API_KEY":
+                    os.environ["GROQ_API_KEY"] = value.strip().strip("'").strip('"')
                     break
 HEADLINE_SCHEMA = {
     "type": "object",

@@ -7,7 +7,7 @@ Current source of truth. Read before every edit and replace this file completely
 - Test first, Live second. Build and approve functionality in Test before Live.
 - No wrappers, adapters, compatibility layers, proxy functions or scaffolding. Delete and rewrite code directly when the current approach is wrong.
 - ranahaani/GNews is the approved Google News source. Use the maintained gnews package; do not copy its source or build another news client.
-- No new runtime dependencies or API services unless explicitly approved. The local Groq key is read from the repo-root `.env` as `GROQ_API_KEY` when it is not already present in the environment; never store the key itself in code or CI.
+- No new runtime dependencies or API services unless explicitly approved. The local Groq key is read directly from the repo-root `.env` as `GROQ_API_KEY` when it is not already present in the environment; normal `.env` spacing, optional `export` and UTF-8 BOM are accepted; never store the key itself in code or CI.
 - AakarshBot/Final-Shorts is reference material only, not a code source.
 - English only for now. Language support comes later.
 - Final story selection is manual. CI passing is technical validation, not editorial approval.
