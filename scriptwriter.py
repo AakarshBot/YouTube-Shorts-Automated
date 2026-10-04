@@ -168,7 +168,7 @@ def manual_sources(urls):
     return sources
 
 
-def generate_script(story, sources, desk, previous=None, source_stage="primary"):
+def generate_script(story, sources, desk, previous=None, source_stage="primary", script_only=False):
     source_text = "\n\n".join(
         f'SOURCE {i}: {item["title"]}\nURL: {item["url"]}\n{item["text"][:12000]}'
         for i, item in enumerate(sources, 1)
@@ -187,6 +187,10 @@ Build a genuinely different angle and narrative spine. Do not merely swap words 
         "automatic": "Use the primary source plus the automatically found related sources. If the combined evidence is still insufficient, return needs_more_sources.",
         "manual": "Use every usable source provided here, including the manually supplied URLs. If the combined evidence is still insufficient, return needs_more_sources; do not invent or pad the story.",
     }[source_stage]
+    redo_instruction = """
+This is a script-only redo. Regenerate only the opening screen headline and slide-by-slide voiceover. The previous draft's packaging is intentionally preserved outside the writer. Do not create or change the YouTube titles, description, hashtags or first comment.
+""" if script_only else ""
+
     prompt = f"""Create a factual YouTube Short for the selected {desk} desk from the supplied source material.
 
 Topic Fetcher selection:
@@ -198,6 +202,7 @@ Topic Fetcher selection:
 {stage_rule}
 
 Write from scratch after understanding the full story. The selected Topic Fetcher headline is the starting subject, not the finished script. Find the most interesting part of the story that genuinely works as a Short, choose one strongest angle, and build the narration around it. Do not simply expand, paraphrase or prolong the selected headline.
+{redo_instruction}
 
 Story rules:
 - Use the available source material as the factual authority.
@@ -255,7 +260,13 @@ When status is needs_more_sources:
     try:
         with urlopen(req, timeout=45) as response:
             data = json.load(response)
-        return json.loads(data["choices"][0]["message"]["content"])
+        result = json.loads(data["choices"][0]["message"]["content"])
+        if script_only and previous and result.get("status") == "ready":
+            result["titles"] = list(previous["titles"])
+            result["description"] = previous["description"]
+            result["hashtags"] = list(previous["hashtags"])
+            result["first_comment"] = previous["first_comment"]
+        return result
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", "ignore")
         raise RuntimeError(f"Groq request failed: {detail[:500]}") from exc
