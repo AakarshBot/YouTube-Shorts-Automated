@@ -248,6 +248,7 @@ def fetch_topics(genre, exclude_urls=()):
                 grouped[label].append({
                     "title": title,
                     "url": url,
+                    "description": _clean(item.get("description")),
                     "publisher": _clean(item.get("publisher")),
                     "published_at": published,
                 })
@@ -274,6 +275,7 @@ def fetch_topics(genre, exclude_urls=()):
                         {
                             "title": r["title"],
                             "url": r["url"],
+                            "description": r["description"],
                             "publisher": r["publisher"],
                             "published_at": r["published_at"],
                         }
@@ -296,6 +298,7 @@ def fetch_topics(genre, exclude_urls=()):
                     {
                         "title": r["title"],
                         "url": r["url"],
+                        "description": r["description"],
                         "publisher": r["publisher"],
                         "published_at": r["published_at"].isoformat(),
                     }
