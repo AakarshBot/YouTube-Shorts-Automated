@@ -12,6 +12,7 @@ def make_ready(slides=None, headline="Rohit Sharma Praise"):
             {"voiceover": "Rohit Sharma got praise."},
             {"voiceover": "The former captain explained why his experience matters."},
             {"voiceover": "The point centred on India's batting during pressure."},
+            {"voiceover": "His experience remains central to India's decision-making."},
         ],
         "titles": ["Rohit Sharma Praise", "Why Rohit's Experience Matters"],
         "description": "The key point about Rohit Sharma's role.",
@@ -26,9 +27,9 @@ def test_valid_ready_output():
 
 def test_slide_count_must_be_four_or_five():
     assert validate_script(make_ready(slides=[{"voiceover": f"Important fact {i}"} for i in range(3)]))[0] == f"Script must contain {MIN_SLIDES}–{MAX_SLIDES} slides."
+    assert validate_script(make_ready(slides=[{"voiceover": f"Important fact {i}"} for i in range(4)])) == []
     assert validate_script(make_ready(slides=[{"voiceover": f"Important fact {i}"} for i in range(5)])) == []
     assert validate_script(make_ready(slides=[{"voiceover": f"Important fact {i}"} for i in range(6)]))[0] == f"Script must contain {MIN_SLIDES}–{MAX_SLIDES} slides."
-
 
 def test_first_slide_must_be_under_fourteen_words():
     result = make_ready(slides=[
