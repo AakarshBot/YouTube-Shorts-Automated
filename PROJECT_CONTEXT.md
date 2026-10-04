@@ -140,19 +140,20 @@ Topic Fetcher is the source-of-truth handoff for Scriptwriter. Each selected hea
 - published_at
 - GNews description/summary
 
-The complete URL is preserved exactly enough for normal navigation; query parameters must not be stripped.
+The complete source URL is preserved for navigation and fetching. Query parameters and URL casing must not be stripped or normalised away.
 
 Scriptwriter does not depend on Google News URL decoding and does not require a publisher page to be reachable. On selection:
 1. Try the supplied source URL with a normal direct HTTP request.
-2. Use the page's article element when available; otherwise use readable page text.
-3. If the publisher returns an HTTP/network error or the page contains insufficient readable text, use the Topic Fetcher's GNews description together with the selected headline as the factual source evidence.
-4. Only fail when there is no readable publisher text and no usable GNews description.
+2. Use the page's article element when available; otherwise use readable page text from the page.
+3. If the publisher returns an HTTP/network error, the URL is malformed, or the page contains insufficient readable text, use the Topic Fetcher's GNews description together with the selected headline as the factual source evidence.
+4. Do not impose an arbitrary minimum character count on the GNews description. Any non-empty GNews description is usable fallback evidence.
+5. Only fail when there is no readable publisher text and no usable GNews description.
 
 This makes source handling universal across desks without adding Playwright, a URL-decoder package, an article-extraction dependency or another API service. A publisher blocking automated requests must not stop the Scriptwriter from producing a factual first draft from the evidence already supplied by Topic Fetcher.
 
 ### Scriptwriter architecture for the current Test page
 
-Selected Topic Fetcher headline → source article (prefer the page's article element when available) → title options → manual title approval → one structured Scriptwriter generation → minimal deterministic validation → Test-page preview.
+Selected Topic Fetcher headline + GNews description → attempt publisher page → use article/page text when readable or GNews evidence when not → title options → manual title approval → one structured Scriptwriter generation → minimal deterministic validation → Test-page preview.
 
 If the title model returns no usable options, show an error and require a user-triggered retry; do not loop automatically.
 
@@ -191,7 +192,10 @@ These stages are not the current active task. Preserve existing functions and ha
 ### CI notes for current Scriptwriter work
 
 - Scriptwriter objective tests cover the first-slide word limit, slide count, duration target, headline format and duplicate-slide rejection.
-- Source-handling tests cover successful publisher reads, HTTP failures falling back to the GNews summary, pages without an article element and missing-evidence failure.
-- The previous Google News redirect-decoding implementation was removed. It was unnecessarily fragile and could itself produce HTTP 400 failures.
-- The current source handoff is intentionally the same for every desk; no desk-specific article-fetching logic should be added.
-- GitHub Actions on main has a separate Topic Fetcher live smoke-test requirement; do not reopen Topic Fetcher unless that regression is directly affected by a Scriptwriter change.
+- Source-handling tests cover successful publisher reads, HTTP 400 fallback, pages without an article element, malformed source URLs and missing-evidence failure.
+- The current universal source handoff does not decode Google News redirects and does not depend on publisher access succeeding.
+- Do not add publisher-specific parsers, Google News-specific redirect logic, Playwright, trafilatura or other runtime dependencies unless explicitly approved.
+- Topic Fetcher must pass title, URL, publisher, published_at and GNews description for every selectable headline on every desk.
+- Source URLs must not be lowercased or stripped of query parameters because the exact URL can be required to reach the intended page.
+- The previous failure caused by an arbitrary 80-character fallback-description threshold has been removed.
+- The current branch is being validated through GitHub Actions before any merge to main.
