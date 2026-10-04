@@ -171,7 +171,7 @@ def fetch_topics(genre, exclude_urls=()):
         news = GNews(
             language="en",
             country=country,
-            max_results=40 if blocked_urls else 20,
+            max_results=25 if genre == "Cricket — India / Pakistan / Sri Lanka / Asia" and label == "India" and not blocked_urls else 20 if not blocked_urls else 40,
             max_retries=1,
         )
         return label, news.get_news(query)
@@ -207,7 +207,7 @@ def fetch_topics(genre, exclude_urls=()):
         fresh = [r for r in rows if r["published_at"] >= now - timedelta(hours=24)]
 
         if genre == "Cricket — India / Pakistan / Sri Lanka / Asia":
-            limit = 20 if label == "India" else 5
+            limit = 25 if label == "India" else 5
             rows = fresh if len(fresh) >= limit else [
                 r for r in rows if r["published_at"] >= now - timedelta(hours=72)
             ]
@@ -224,7 +224,7 @@ def fetch_topics(genre, exclude_urls=()):
                         "publisher": r["publisher"],
                         "published_at": r["published_at"].isoformat(),
                     }
-                    for r in rows[:20]
+                    for r in rows[:25 if genre == "Cricket — India / Pakistan / Sri Lanka / Asia" and label == "India" else 20]
                 ],
             })
 
