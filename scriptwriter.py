@@ -82,13 +82,13 @@ def article_text(story):
         target = article.group(0) if article else raw
         parser = _Text()
         parser.feed(re.sub(r"<head[sS]*?</head>", " ", target, flags=re.I))
-        text = re.sub(r"s+", " ", html.unescape(" ".join(parser.parts))).strip()
+        text = re.sub(r"\s+", " ", html.unescape(" ".join(parser.parts))).strip()
         if len(text) >= 300:
             return text[:20000]
     except (HTTPError, URLError, TimeoutError, ValueError):
         pass
 
-    summary = re.sub(r"s+", " ", html.unescape(str(story.get("description") or ""))).strip()
+    summary = re.sub(r"\s+", " ", html.unescape(str(story.get("description") or ""))).strip()
     if summary:
         return f'{story["title"]}. {summary}'
     raise RuntimeError("The selected story has no readable source evidence.")
