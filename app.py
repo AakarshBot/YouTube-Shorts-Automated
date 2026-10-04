@@ -30,10 +30,16 @@ div.stButton>button:disabled{background:#efede8;color:#8a877f;border-color:#ddd9
 """, unsafe_allow_html=True)
 
 for key, value in {
-    "page":"home","genre":None,"topics":[],"seen_urls":set(),
-    "selected_story":None,"source_text":"","title_options":[],
-    "approved_title":None,"script_versions":[],"script_approved":None,
-    "title_error":None,"script_error":None,
+    "page": "home",
+    "genre": None,
+    "topics": [],
+    "seen_urls": set(),
+    "selected_story": None,
+    "source_text": "",
+    "script_versions": [],
+    "approved_title": None,
+    "approved_version": None,
+    "script_error": None,
 }.items():
     st.session_state.setdefault(key, value)
 
@@ -172,11 +178,10 @@ elif st.session_state.page == "topics":
                             ):
                                 st.session_state.selected_story = h
                                 st.session_state.source_text = ""
-                                    st.session_state.approved_title = None
-                            st.session_state.approved_version = None
-                                    st.session_state.approved_version = None
                                 st.session_state.script_versions = []
-                                        st.session_state.script_error = None
+                                st.session_state.approved_title = None
+                                st.session_state.approved_version = None
+                                st.session_state.script_error = None
                                 st.session_state.page = "scriptwriter"
                                 st.rerun()
 
