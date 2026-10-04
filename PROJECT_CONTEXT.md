@@ -78,7 +78,7 @@ Architecture:
 **GNews → concurrent query discovery → cleanup → freshness selection → entity grouping/deduplication → simple ranking → 20 topic pills**
 
 Current implementation:
-- Uses `GNews(language="en", country="IN", max_results=100, period="3d")`.
+- Uses `GNews(language="en", country="IN", max_results=100)`; the 3-day window is expressed in each discovery query..
 - Runs the configured genre queries concurrently.
 - Uses the package's `get_news()` method directly; there is no `_google()` or equivalent retrieval wrapper.
 - Uses only lightweight local Python logic for cleanup, entity extraction, related-headline detection and ranking.
@@ -171,6 +171,7 @@ No Live implementation has been built.
 - Topic Fetcher was rewritten cleanly instead of patched.
 - The previous custom GDELT fallback was removed.
 - The previous `_google()` and `_gdelt()` retrieval wrappers were removed.
+- Unused dashboard CSS and the duplicate GNews period argument were removed.
 - The implementation now depends directly on the maintained `gnews` package for Google News retrieval.
 - `requirements.txt` contains only the dependencies currently needed by the rebuilt Test shell: `streamlit` and `gnews`.
 - No copied code from `ranahaani/GNews` is present.
