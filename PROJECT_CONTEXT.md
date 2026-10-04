@@ -254,9 +254,9 @@ The selected Topic Fetcher headline and selected desk/genre remain the starting 
 - Slides 2–6 each limited to 15 seconds of speech.
 - No generic “5 stories you need to see…” opener.
 
-## Audio — IMPLEMENTED — PENDING LOCAL GENERATION/QC
+## Audio — APPROVED — 8/10
 
-Stage 3 is narration only. No music, sound effects or other audio layers.
+Stage 3 is approved after successful local generation and manual QC. Stage 3 is narration only; no music, sound effects or other audio layers.
 
 ### Audio engine
 - Chatterbox is the approved local TTS engine.
@@ -302,10 +302,15 @@ Stage 3 is narration only. No music, sound effects or other audio layers.
 7. Redo Audio regenerates a new take without changing the approved Scriptwriter text.
 8. Subtitles remain disabled until Stage 4 is built.
 
-### Local installation
+### Local installation and current status
 - Chatterbox is installed manually into the same existing project virtual environment.
 - It is intentionally not added to CI's lightweight `requirements.txt`; CI validates factory code without downloading the TTS model stack.
 - First local generation downloads/caches the Chatterbox model weights.
+- The local Turbo model download completed successfully and is cached locally; subsequent Hugging Face fetches use the cached files rather than downloading the model again.
+- Windows Hugging Face symlink support is optional; the degraded cache warning does not block model use.
+- An unauthenticated Hugging Face session can download the model but may have lower rate limits; no HF token is required by the factory.
+- A local Chatterbox startup issue caused by the Perth watermarker dependency was resolved in the environment before Audio approval. This was an environment/dependency fix only; no project wrapper or extra factory service was added.
+- Audio generation was accepted by manual QC and is rated 8/10. Reopen Audio only if a later requirement, quality issue or regression requires it.
 
 ## Later stages
 
@@ -317,7 +322,7 @@ Subtitles, Visuals, Renderer and Upload are not active. Preserve their existing 
 - topic_fetcher.py — completed Topic Fetcher.
 - app.py — Test dashboard through Audio. Pipeline modules are loaded only when their stage is needed; Scriptwriter QC fields are edited directly in the page in a fixed editorial order with separated slide cards and packaging sections; Audio generation is explicitly started from the Audio page. Script redo accepts optional user-supplied source URLs, regenerates only the opening headline and slides, and preserves the previous packaging fields unchanged. Same-page actions avoid redundant second full reruns; full reruns are retained for page transitions and actions that genuinely require a new execution. Dashboard logic is kept direct; no stage wrapper/helper functions.
 - scriptwriter.py — source-first, desk-aware Scriptwriter approved at 6/10; pending multiple test cases across desks. Initial generation uses the full output contract; script redo uses a direct script-only output contract and leaves packaging preservation to app.py.
-- audio.py — local Chatterbox narration for approved Scriptwriter slides; implemented and pending local generation/QC.
+- audio.py — local Chatterbox narration for approved Scriptwriter slides; approved 8/10 after successful local generation and manual QC.
 - tests/test_topic_fetcher.py — Topic Fetcher tests.
 - tests/test_scriptwriter.py — Scriptwriter tests.
 - tests/test_audio.py — Audio dependency-loading and input validation tests.
