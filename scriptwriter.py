@@ -12,6 +12,8 @@ from gnews import GNews
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 MAX_WORDS = 65
+MIN_SLIDES = 4
+MAX_SLIDES = 5
 
 if not os.getenv("GROQ_API_KEY"):
     path = os.path.join(os.path.dirname(__file__), ".env")
@@ -31,6 +33,8 @@ OUTPUT_SCHEMA = {
         "opening_headline": {"type": "string"},
         "slides": {
             "type": "array",
+            "minItems": MIN_SLIDES,
+            "maxItems": MAX_SLIDES,
             "items": {
                 "type": "object",
                 "properties": {"voiceover": {"type": "string"}},
@@ -202,8 +206,8 @@ Story rules:
 - You may synthesise information across sources when the sources support the same story.
 - Reorder facts however the story needs; do not mechanically follow article paragraphs.
 - Capture the important facts, context, names, teams, organisations, events, numbers and remarks needed to understand the story.
-- Use as many slides as the story needs. There is no fixed slide count.
-- Every slide must add important information. Do not create filler slides, repetition or artificial sentence splits.
+- Use exactly 4 or 5 slides. Minimum 4, maximum 5.
+- Every slide must add important information. Do not create filler, repetition or artificial sentence splits just to reach 4 or 5 slides.
 - Slide 1 spoken narration must contain fewer than 14 words.
 - Keep total spoken narration to 65 words or fewer as the proxy for a Short under 30 seconds. The Audio stage may slightly speed the final voice if it is only marginally over 30 seconds.
 - Retention must come from real facts, context, contrast, consequence, significance or surprise in the sources.
@@ -278,6 +282,8 @@ def validate_script(result):
     errors = []
     if not slides or not all(isinstance(slide, dict) for slide in slides):
         errors.append("Every slide must be an object.")
+    elif not MIN_SLIDES <= len(slides) <= MAX_SLIDES:
+        errors.append(f"Script must contain {MIN_SLIDES}–{MAX_SLIDES} slides.")
     elif len(re.findall(r"\b\w+[’'-]?\w*\b", slides[0].get("voiceover", ""))) >= 14:
         errors.append("Slide 1 must contain fewer than 14 words.")
 
