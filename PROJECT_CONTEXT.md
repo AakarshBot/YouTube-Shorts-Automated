@@ -81,6 +81,8 @@ Manual additional-source run:
 - Do not invent a script, titles, description, hashtags or comment just to produce an output.
 
 If the primary source itself is unreadable, the automatic related-source run still happens rather than failing immediately.
+- Source-reading failures are distinct from Groq/generation failures. API, structured-output and generation errors must surface as actual errors; they must never be treated as evidence that the story is insufficient.
+- A failed automatic related-source request must also surface as an actual error; it must not be silently converted into a “not enough story” state.
 
 ### Story rules
 
@@ -215,7 +217,7 @@ Audio, Subtitles, Visuals, Renderer and Upload are not active. Preserve their ex
 
 - PROJECT_CONTEXT.md — current source of truth.
 - topic_fetcher.py — completed Topic Fetcher.
-- app.py — Test dashboard and Scriptwriter flow.
+- app.py — Test dashboard and Scriptwriter flow. Dashboard logic is kept direct; no Scriptwriter wrapper/helper functions.
 - scriptwriter.py — source-first Scriptwriter under test.
 - tests/test_topic_fetcher.py — Topic Fetcher tests.
 - tests/test_scriptwriter.py — Scriptwriter tests.
