@@ -36,214 +36,102 @@ Topic Fetcher is complete enough to move to Scriptwriter.
 
 The 7/10 rating is the approved manual-QC rating. Do not reopen or broaden Topic Fetcher work unless a later requirement or regression requires it.
 
-### Scriptwriter — NEXT
+### Scriptwriter — NEXT ACTIVE STAGE
 
-Scriptwriter is the next active stage. Implementation and Test work start from the rules below.
+The Scriptwriter takes the manually selected Topic Fetcher story and its source URL/article text and turns it into a complete YouTube Short editorial package.
 
-## Deep-Dive desks
+### Non-negotiable editorial rules
 
-Deep-Dive opens into:
-- Sports
-- News
-- Entertainment
-- Technology
-- Business & Finance
-- Gaming
-- Science & Space
-
-Sports is the completed desk for Topic Fetcher. The six non-Sports desks have initial Topic Fetcher coverage.
-
-## Topic Fetcher — completed behaviour
-
-The fetcher is pill-based. A selected desk exposes focused top-level pills; each pill expands directly into headline choices with title, publisher, publication time and source URL.
-
-### Sports
-
-Sports opens:
-1. Cricket — India / Pakistan / Sri Lanka / Asia
-2. Cricket — Global
-3. Niche Sports — Global
-
-#### Regional Cricket
-
-Country pills:
-- India: target 25 title/entity pills. Each pill counts as 1 unit toward the 25 target, regardless of how many headlines it contains. India remains the country pill, with the title/entity pills inside it.
-- Pakistan: target at least 5 headlines.
-- Sri Lanka: target at least 5 headlines.
-- Bangladesh: include when fresh qualifying stories exist.
-- Afghanistan: include when fresh qualifying stories exist.
-
-Regional Cricket uses one targeted Google News search per country in the first pass. India uses title/entity grouping to measure its 25-pill target; Pakistan/Sri Lanka use their existing headline targets. India/Pakistan/Sri Lanka can fall back to a 72-hour search only when their targets are not met.
-
-India title/entity grouping:
-- Group India cricket headlines into simple pills using repeated meaningful words or phrases from the headlines.
-- Generic words such as India, cricket and match are not used as standalone grouping keys.
-- A grouped India pill can contain multiple different stories about the same player, tournament or other repeated title entity.
-- Unmatched stories remain individual title pills for manual QC.
-- A pill containing multiple stories still counts as exactly 1 unit toward the 25-unit target.
-
-India retrieval:
-- First fetch uses up to 100 GNews results for India to support the 25 title/entity-pill target.
-- Search 20 more can request up to 40 and excludes previously shown URLs.
-- GNews applies max_results after fetching the RSS feed, so lowering result counts does not materially reduce network runtime.
-- At most 8 GNews searches run concurrently. This is the current safe runtime/rate-limit balance.
-- GNews rate-limit retries are limited to one.
-
-#### Global Cricket
-
-Country pills:
-Australia, England, South Africa, New Zealand, Ireland and Zimbabwe.
-
-A country pill exists only when it has fresh qualifying headlines within 24 hours.
-
-Global Cricket remains unchanged by the India-specific title/entity grouping.
-
-#### Niche Sports
-
-Sport pills:
-Football, Tennis, Basketball, Athletics, Motorsport, Badminton, Hockey, Golf, Boxing, Wrestling, Swimming, Rugby, Volleyball, Cycling, Baseball and Table Tennis.
-
-Cricket is excluded. Only fresh qualifying stories create sport pills.
-
-Niche Sports remains unchanged by the India-specific title/entity grouping.
-
-### Story-quality rules
-
-Reject obvious utility/reference pages such as schedules, fixtures, standings, scorecards, watch guides, predicted lineups, galleries, quizzes, odds, recaps, round-ups and similar pages.
-
-For cricket, also reject explicit database/reference pages containing phrases such as “record & stats”, “records & stats”, “team records”, “career stats” and “cricket grounds”.
-
-The cricket blacklist is deterministic and title-based. It must match these reference phrases without requiring quotation marks in the headline.
-
-Do not add an LLM classifier, article scraper, publisher allowlist, alternate news API, cache layer or additional runtime dependency to Topic Fetcher.
-
-A keyword mention alone is not the retrieval strategy. Queries should be specific enough to favour actual current cricket stories while preserving legitimate broader stories connected to a cricket development.
-
-### Freshness and dedupe
-
-- Freshness target: newest 24 hours.
-- Regional Cricket: 72-hour fallback only when India/Pakistan/Sri Lanka misses its target.
-- Global Cricket and Niche Sports: no stale-only pills.
-- Preserve title, URL, publisher and publication time.
-- Normalize URLs before dedupe.
-- Search 20 more excludes previously shown URLs and merges unseen headlines into the existing pill.
-- No cache or alternate news provider was introduced.
-- The Topic Fetcher output uses string timestamps for dashboard compatibility.
-
-## Non-Sports Deep-Dive desks
-
-### News
-India; World; Politics & Policy; Major Events.
-
-### Entertainment
-Indian Film & OTT; Global Film & TV; Music; Celebrities.
-
-### Technology
-AI; Phones & Gadgets; Big Tech & Platforms; Startups & Innovation.
-
-### Business & Finance
-India Markets; Global Markets; Companies & Deals; Economy & Policy.
-
-### Gaming
-Games & Releases; Esports; Industry & Platforms; Hardware.
-
-### Science & Space
-Space; Science & Research; Environment & Climate; Major Discoveries.
-
-Each uses one focused fresh GNews search per pill and the same lightweight filtering/dedupe flow.
-
-## Test dashboard
-
-Flow:
-Homepage → Test → Deep-Dive → Desk → Topic Fetcher.
-
-Sports:
-Deep-Dive → Sports → Cricket / Global Cricket / Niche Sports → Topic Fetcher.
-
-Non-Sports:
-Deep-Dive → News / Entertainment / Technology / Business & Finance / Gaming / Science & Space → Topic Fetcher.
-
-For Sports Topic Fetcher, back returns to Sports. For non-Sports Topic Fetcher, back returns to Deep-Dive.
-
-The dashboard remains light/warm with readable buttons and compact headline cards.
-
-## Topic Fetcher tests and CI
-
-tests/test_topic_fetcher.py checks:
-- Deep-Dive desk list.
-- Sports option preservation.
-- Non-Sports pill structure.
-- Cricket query specificity.
-- Cricket reference-page rejection.
-- Niche sports breadth.
-- India title/entity grouping.
-- Grouped India timestamps remain strings.
-
-.github/workflows/test.yml:
-- Installs runtime dependencies plus pytest.
-- Runs unit tests.
-- Performs a real Regional Cricket fetch and requires India/Pakistan/Sri Lanka.
-- Requires at least 25 India title/entity pills, 5 Pakistan headlines and 5 Sri Lanka headlines.
-- Prints returned India cricket title/entity pills and their headlines for manual inspection in the CI log.
-- Performs real Niche Sports, News and Technology fetches.
-- Verifies returned pills belong to configured structures.
-
-CI is technical validation plus a real retrieval smoke sample. It is not editorial approval.
-
-## Scriptwriter rules — next stage
-
-The Scriptwriter takes a manually selected source story from Topic Fetcher and turns it into a YouTube Short script.
-
-### Core rules
-
-- First slide must contain fewer than 14 words.
-- The fewer-than-14-word rule applies only to the first slide. It is not a rule for the whole script and is not a speech-duration rule.
-- The entire Short must be under 30 seconds.
-- Every slide must contain important information. No filler slides.
-- Do not invent facts, context, quotes, events, statistics or conclusions that are not supported by the source material.
-- Do not simply repeat or stretch the headline.
-- The script must capture the actual facts of the story.
-- Four slides should cover roughly 90% of the important information in the source article.
-- Four to five slides are acceptable. Do not force the script into unnecessarily compact or tiny slides.
-- A single source article is acceptable.
-- Related current/trending information may be added when it materially helps explain the story and is reliable.
-- An AI/API coverage step may be used when it materially improves factual coverage, but it must not add unnecessary calls, cost, runtime or complexity.
-- Slightly exceeding 30 seconds is not acceptable as a target; if audio later runs only slightly over because of natural speech timing, a modest speed-up is acceptable.
-- Do not use generic AI-style framing, filler hooks or manufactured commentary such as “this changes the game”, “the sports world is reacting”, “a moment fans won't forget” or similar language unless the source itself supports it.
-- The output must be factual, direct and useful to a sports/news audience.
+- The first spoken slide must contain fewer than 14 words.
+- The fewer-than-14-word rule applies only to the first spoken slide. It is a word-count rule, not a scene-duration rule.
+- The Short uses 4 or 5 slides. Choose 4 when the story can be told completely in 4; use 5 only when the fifth slide adds necessary information.
+- The Scriptwriter must target a total narration time at or below 30 seconds. A 1-second technical buffer is acceptable. A script that lands roughly 2 seconds over may be rescued later with a modest TTS speed-up, but exceeding 30 seconds is never the intended writer output.
+- Every slide must add important information. No filler, repetition or slides that exist only to bridge time.
+- The source article is evidence, not the script. Do not simply rephrase, compress or follow the article paragraph-by-paragraph.
+- Write the story from scratch using the supported facts. Reorder information, choose a stronger editorial angle, synthesise related details and decide what matters most to the viewer.
+- Editorial value must come from factual selection, synthesis, context, contrast, consequence, significance or a useful human angle. Do not invent facts, motives, quotes, statistics, predictions, reactions or conclusions to make the story more interesting.
+- Slide 1 must function as the retention opening: immediately give the strongest supported fact, tension, surprise, result, consequence or other compelling angle.
+- Later slides must continue retention by introducing new, useful information and creating forward momentum. Retention must never depend on withholding the answer or using fake curiosity.
+- Four slides should normally cover roughly 90% of the important information in the source. A fifth slide is only for necessary information that cannot be cleanly included earlier.
+- The writing should have personality without becoming casual or unprofessional: confident, sharp, human, natural, varied and editorially distinctive.
+- Prefer strong verbs, clean spoken phrasing and specific language over generic AI-news wording.
+- Avoid generic AI-style framing, manufactured hype, clickbait, empty superlatives, forced jokes and phrases such as “this changes the game”, “the sports world is reacting” or “a moment fans won't forget” unless the supplied evidence genuinely supports the statement.
+- Curiosity should come from a real supported detail, not from telling the viewer to wait for a reveal.
+- Do not copy complete sentences from the source. Paraphrase and synthesise while preserving the actual meaning.
+- A single source article is acceptable. Related current information may be used only when it materially improves understanding and is reliable; it must not become an unnecessary research or API chain.
+- The writer must make the strongest complete first draft in one generation. Do not design the factory around automatic rewrite/repair loops.
 - Manual QC remains the final editorial gate.
 
-### Required Scriptwriter output
+### Required output
 
-For each selected story, output:
-- Slide-by-slide script.
-- YouTube title.
-- YouTube description.
-- Hashtags.
+Every first-run Scriptwriter result must contain all of these:
 
-The title and description should describe the actual story. Do not manufacture clickbait or add claims not supported by the source.
+- Opening screen headline: exactly 3–4 words, strictly about the selected story, zero filler words. It is large screen text shown during the first second of Slide 1 and is separate from the spoken narration.
+- Slide-by-slide spoken script: 4 or 5 slides.
+- One YouTube title that accurately packages the actual story without unsupported clickbait.
+- One YouTube description that explains the actual story clearly and naturally.
+- Relevant hashtags only; no filler hashtags.
+- One first/creator comment designed to start a genuine conversation about this specific story.
 
-### Script structure
+### First/creator comment
 
-Preferred shape:
-- Slide 1: concise factual hook, fewer than 14 words.
-- Slides 2–4: the core facts, covering the bulk of the article.
-- Slide 5: optional only when it adds a necessary fact and still keeps the full Short under 30 seconds.
+The first comment is an editorial output, not a generic CTA.
 
-Every slide needs a fact or meaningful piece of context.
+- It should be based on the actual story and give viewers an easy reason to respond.
+- Prefer a specific question, judgement call, comparison or implication that arises naturally from the facts.
+- It must not default to generic prompts such as “What do you think?” or “What do you make of this?” when a stronger story-specific question is possible.
+- Do not automatically append “subscribe for more” or similar boilerplate.
+- The comment should sound like a human editor opening a conversation, not an automated engagement prompt.
+- The backup factory's useful principle is retained: the generated story-specific comment is preferred over a mechanical fallback. The new factory should improve this by making the first-run model responsible for producing the conversation starter correctly.
 
-### Scriptwriter validation
+### Improve Script behaviour
 
-Validation should check:
-- First slide word count is below 14.
-- Total script duration/estimated speech stays below 30 seconds.
+The dashboard will provide an Improve/Re-run option after the first draft.
+
+Improve is not an automatic response to a validation failure and must not become a correction loop.
+
+A re-run must:
+
+- Re-read the same source evidence.
+- Produce a genuinely different editorial angle or narrative spine.
+- Avoid simply changing words while keeping the same structure and opening.
+- Preserve the same factual, slide-count, headline, packaging and duration requirements.
+- Keep the previous draft only as context for what should not be repeated; the original source remains the factual authority.
+
+Examples of valid angle changes include result-led, pressure-led, consequence-led, conflict/response-led, comparison-led, human-angle-led or another evidence-backed angle that materially changes the storytelling approach.
+
+### Scriptwriter intelligence and validation
+
+The model should satisfy the editorial brief before returning the first result. Python should enforce only a small set of objective requirements:
+
+- Valid structured output.
+- 4 or 5 spoken slides.
+- First spoken slide under 14 words.
+- Total estimated narration at or below the writer's 30-second target.
 - Every slide contains substantive narration.
-- The script does not merely echo the source headline.
-- The script covers the key facts from the source.
-- No unsupported facts are introduced.
-- Required title, description and hashtags are present.
+- Opening screen headline is exactly 3–4 story-specific words with no filler.
+- Title, description, hashtags and first comment are present.
+- Basic obvious-quality checks such as empty fields, gross slide duplication, clear retention-bait phrasing and unsupported numeric details may be rejected.
 
-Do not add scene-duration rules that are unrelated to the first-slide word-count rule. The first-slide limit is a word-count constraint, not a “first scene under X seconds” constraint.
+Do not add hook-scoring systems, editorial-angle scoring systems, title-ranking systems, personas, critic passes, automatic rewrite chains, provider routers, source-claim graphs or other large validation frameworks unless a later requirement proves one is necessary.
+
+The Scriptwriter should not constantly fail on secondary factory rules after generation. The prompt and structured output contract should be strong enough that the normal first run already satisfies the intended editorial product.
+
+### Source handling
+
+Topic Fetcher supplies the selected story's source URL and source metadata. The Scriptwriter must receive usable source/article text derived from that selected source before generation.
+
+Do not add runtime dependencies or new API services solely to make Scriptwriter more elaborate. Prefer existing repository capabilities and direct standard-library/simple implementations. A new dependency requires explicit approval.
+
+### Scriptwriter architecture
+
+Preferred flow:
+
+Selected Topic Fetcher story → source/article text → one structured Scriptwriter generation → minimal deterministic validation → dashboard.
+
+Improve/Re-run uses the same source with a different requested editorial angle.
+
+One first-run generation should produce the entire package together so the spoken script, opening screen headline, YouTube title, description, hashtags and first comment are editorially coherent.
 
 ## Top-5
 
