@@ -43,7 +43,16 @@ def test_opening_headline_must_be_three_or_four_words():
     assert "Opening headline must contain exactly 3 or 4 words." in validate_script(
         script("Two Words"), "Title"
     )
-    assert validate_script(script("Four Important Words"), "Title") == []
+    result = script(
+        "Four Important Words",
+        slides=[
+            {"voiceover": "First useful fact"},
+            {"voiceover": "Second useful fact"},
+            {"voiceover": "Third useful fact"},
+            {"voiceover": "Fourth useful fact"},
+        ],
+    )
+    assert validate_script(result, "Title") == []
 
 
 def test_narration_must_fit_thirty_second_target():
