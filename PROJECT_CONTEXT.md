@@ -2,19 +2,16 @@
 
 This file is the source of truth for this repository.
 
-**Mandatory:** Read this file in full before every edit. Update this file after every improvement so it accurately describes the current build.
+**Mandatory:** Read this file in full before every edit. Update it after every improvement so it describes the current build accurately.
 
 ## Governing rules
 
-### 1. Test first, Live second
-
+### Test first, Live second
 The factory has exactly two pipelines:
-
-- **Test:** every new function is built and proven here first.
-- **Live:** only approved functions are stitched together here.
+- **Test:** new functions are built and proven here first.
+- **Live:** only approved functions are stitched together.
 
 For every change:
-
 1. Build or change the function in Test.
 2. Test it independently.
 3. Get user approval.
@@ -23,146 +20,114 @@ For every change:
 
 Never skip Test or build a separate unapproved Live implementation.
 
-### 2. No wrappers
+### No wrappers
+Never add wrappers, adapters, compatibility layers, proxy functions or scaffolding around factory code.
+When code needs to change, replace the old implementation cleanly. Keep the implementation direct and compact.
 
-Never add wrappers, adapters, compatibility layers, proxy functions, or scaffolding around factory code.
+### Source and dependency rule
+`ranahaani/GNews` is the approved source package for Google News retrieval.
 
-When code needs to change, delete the old implementation and rewrite it cleanly when necessary.
+Use the maintained **GNews Python package** through normal imports such as:
+```python
+from gnews import GNews
+```
 
-Keep implementations direct and compact.
+Do not copy the GNews repository's implementation into this repository. Do not build a custom Google News RSS/API client when the package already provides the required retrieval.
 
-### 3. No code from Final-Shorts
-
-`AakarshBot/Final-Shorts` is reference material only.
-
-Do not copy its code, modules, functions, architecture, runtime imports, schemas, or implementation patterns.
-
-All factory code in this repository is written from scratch.
-
-External open-source packages may be installed and imported when they are the best existing solution. They are dependencies, not copied code.
+`AakarshBot/Final-Shorts` is reference material only. Do not copy its code, modules or architecture.
 
 ## Factory flow
 
-The production concept is:
-
 **Choose topic → Script → Audio + subtitles → Choose visuals → Render → Metadata QC → Automatic upload**
 
-The factory will support multiple production formats. Current Test format:
+All production lines use the same seven factory stages. New behaviour is built in Test before Live.
 
+Current Test production line:
 **Deep-Dive**
 
-Planned later: **Top-5, Did You Know, and more.**
+Planned later:
+**Top-5, OTD, and other lines**
 
-Current Test genre:
-
-**Sports**
-
-Planned later: News, Tech, Business, Entertainment, Science and other areas.
-
-Sports genres currently defined:
-
+Current sports desks:
 1. Cricket — India / Pakistan / Sri Lanka / Asia
 2. Cricket — Global
 3. Niche Sports — Global
 
-When a sports genre is opened, the full factory stage list is shown. Only the function currently under development is active.
-
 ## Current development status
 
 ### Step 01 — Topic Fetcher
-
 **Status: Test implementation in progress. Not user-approved yet.**
 
-Current requirements:
-
-- Return **20 unique topic pills** for each of the three sports genres.
-- Fetch substantially more than 20 headlines so filtering and grouping do not shrink the final pool.
-- Prefer new stories with strong current coverage and viral potential.
-- Use freshness and publisher/story coverage as simple proxies; do not add a complicated trend system.
-- Group headlines under an entity/topic pill where practical.
-- A person/entity pill may contain different current stories about that person/entity because final selection is manual.
+Requirements:
+- Return **20 unique topic pills** for each current sports desk when the source pool supports it.
+- Fetch substantially more than 20 headlines so filtering and grouping do not unnecessarily shrink the pool.
+- Prefer fresh stories with strong current coverage.
+- Prefer the most recent 24 hours when that can supply 20 distinct topic groups; otherwise use the full 72-hour discovery pool.
 - Remove obvious utility content such as schedules, fixtures, standings, scorecards, watch guides, predicted lineups, galleries, quizzes and similar non-story pages.
-- Avoid stale tournament recap/review material when the competition finished earlier and there is no genuinely new development.
-- Use a dynamic freshness window: prefer the most recent 24 hours when that can produce 20 distinct topic groups; otherwise allow the 72-hour discovery pool before using GDELT fallback.
-- Use English only for the first implementation. Language support will be added later.
-- The user manually chooses the final story; Topic Fetcher does not make the final editorial decision.
+- Avoid stale recap/review material when it adds no new development.
+- Group related headlines under an entity/topic pill without making the final editorial choice.
+- A person/entity pill may contain multiple different current stories about that person/entity because final selection is manual.
+- Preserve for each headline: title, source URL, publisher and publication time.
+- English only for the first implementation. Language support comes later.
+- The Topic Fetcher is a discovery tool; manual QC chooses the actual story.
 
 ### Topic Fetcher implementation
+`topic_fetcher.py` is a compact factory-specific consumer of the maintained `ranahaani/GNews` package.
 
-The implementation is written from scratch in `topic_fetcher.py`.
+Architecture:
+**GNews → concurrent query discovery → cleanup → freshness selection → entity grouping/deduplication → simple ranking → 20 topic pills**
 
-External packages:
+Current implementation:
+- Uses `GNews(language="en", country="IN", max_results=100, period="3d")`.
+- Runs the configured genre queries concurrently.
+- Uses the package's `get_news()` method directly; there is no `_google()` or equivalent retrieval wrapper.
+- Uses only lightweight local Python logic for cleanup, entity extraction, related-headline detection and ranking.
+- Does not make an AI classification call.
+- Does not use GDELT.
+- Does not implement a custom Google News client.
+- Keeps one direct `fetch_topics()` entry point for the dashboard handoff.
 
-- **GNews** for Google News discovery and structured article results.
-- **gdeltdoc** for GDELT article discovery when the Google News pool is insufficient.
-- **rapidfuzz** for lightweight headline similarity.
+Current query coverage deliberately over-fetches across:
+- India / Asia cricket
+- global cricket
+- global niche sports
 
-The source-access work is intentionally delegated to established packages rather than custom RSS/API clients.
-
-Current discovery:
-
-**Multiple genre queries → large candidate pool → cleanup → entity/topic grouping → simple ranking → 20 pills**
-
-The ranking intentionally stays small and editable. It favours:
-
-- freshness of the newest headline first
-- number of distinct publishers
-- number of relevant headlines in the group
-
-No separate AI classification stage is currently used.
-
-Output contains:
-
-- topic/entity heading
-- one or more headlines
-- publisher
-- publication time
-- source URL
-
-Google News may return Google News redirect URLs when using its default RSS backend. Direct URL resolution can be added later only if downstream use shows it is necessary.
+The result contract is:
+```
+{
+  "topic": "...",
+  "headlines": [
+    {
+      "title": "...",
+      "url": "...",
+      "publisher": "...",
+      "published_at": "..."
+    }
+  ]
+}
+```
 
 ## Dashboard — Test shell
-
-`app.py` contains the new Test navigation only:
-
-**Homepage**
-→ Test / Live
-
-**Test**
-→ Deep-Dive
-
-**Deep-Dive**
-→ Sports
-
-**Sports**
-→ the three current sports genres
-
-**Genre**
-→ Topic Fetcher → Scriptwriter → Audio → Subtitles → Visuals → Renderer → Metadata QC → Upload
-
-Only Topic Fetcher is active.
-
-Live is intentionally disabled and has not been connected to the new function.
+`app.py` contains the Test navigation:
+**Homepage → Test → Deep-Dive → Sports → Genre → Topic Fetcher**
+The genre page shows the complete production-stage list, while only Topic Fetcher is active.
+Live is intentionally disabled until approved.
 
 ## Dashboard UI principles
-
-The dashboard is rebuilt from scratch and must not copy Final-Shorts UI.
-
-UI target:
-
+The dashboard should be:
 - professional
-- light/warm
+- light / warm
 - readable
 - compact
 - minimal decoration
-- straightforward Streamlit components
+- straightforward Streamlit
 - minimal CSS
 - easy to edit
 
+Do not copy Final-Shorts UI.
+
 ## Step 01 handoff
-
-The eventual Topic Fetcher handoff to Step 02 must retain at least:
-
+After manual topic selection, Step 02 must receive at least:
 - selected topic/entity
 - selected headline
 - source URL
@@ -170,28 +135,28 @@ The eventual Topic Fetcher handoff to Step 02 must retain at least:
 - publication time
 - grouped headline context when available
 
-Do not integrate Step 02 until Topic Fetcher has been tested and approved.
+Do not integrate Step 02 until Topic Fetcher is tested and approved.
 
 ## Testing
-
 Focused tests currently cover:
-
 - all three sports genres exist
 - entity extraction recognises a named subject such as Virat Kohli
-- loose headline similarity can recognise closely related headlines as the same story
+- related headlines can be recognised as the same story
 
-A stale test reference to the previous similarity function name was removed; tests now match the current `topic_fetcher.py` implementation.
+The intended CI checks are:
+1. install runtime dependencies
+2. run focused pytest tests
+3. run a real smoke test for all three sports desks
+4. assert each desk can return 20 topic pills
 
-GitHub Actions installs pytest only in CI, runs the focused tests, then runs a real three-genre smoke test that asserts each genre returns exactly 20 topic pills. The environment available to ChatGPT cannot reach the public internet, so the real-fetch result must be checked from GitHub Actions.
+The environment available to ChatGPT cannot perform the public-news fetch itself, so the real-fetch smoke result must be verified by GitHub Actions.
 
-Code passing tests is not sufficient for approval; actual story quality is the approval criterion.
+Passing tests alone is not editorial approval. The returned stories must still be manually inspected.
 
 ## Repository state
-
 This is a clean rebuild.
 
-Files currently present:
-
+Current files:
 - `PROJECT_CONTEXT.md`
 - `requirements.txt`
 - `topic_fetcher.py`
@@ -200,3 +165,11 @@ Files currently present:
 - `.github/workflows/test.yml`
 
 No Live implementation has been built.
+
+## Current cleanup baseline
+- Topic Fetcher was rewritten cleanly instead of patched.
+- The previous custom GDELT fallback was removed.
+- The previous `_google()` and `_gdelt()` retrieval wrappers were removed.
+- The implementation now depends directly on the maintained `gnews` package for Google News retrieval.
+- No copied code from `ranahaani/GNews` is present.
+- No new compatibility layer or wrapper was introduced.
