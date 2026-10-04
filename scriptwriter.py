@@ -4,6 +4,7 @@ import os
 import re
 from html.parser import HTMLParser
 from urllib.error import HTTPError, URLError
+from urllib.parse import parse_qs, quote, urlsplit
 from urllib.request import Request, urlopen
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -55,6 +56,41 @@ class _Text(HTMLParser):
 def article_text(url):
     if not url:
         raise ValueError("Selected story has no source URL.")
+
+    parsed = urlsplit(url)
+    if parsed.netloc.lower().endswith("news.google.com"):
+        query_url = parse_qs(parsed.query).get("url", [None])[0]
+        if query_url:
+            url = query_url
+        else:
+            token = parsed.path.rstrip("/").split("/")[-1]
+            if token:
+                payload = (
+                    '[[["Fbv4je","[\"garturlreq\",[[\"en-US\",\"US\",'
+                    '[\"FINANCE_TOP_INDICES\",\"WEB_TEST_1_0_0\"],null,null,1,1,'
+                    '\"US:en\",null,180,null,null,null,null,null,0,null,null,'
+                    '[1608992183,723341000]],\"en-US\",\"US\",1,[2,3,4,8],1,0,'
+                    '\"655000234\",0,0,null,0],\"' + token + '\"]",null,"generic"]]]'
+                )
+                req = Request(
+                    "https://news.google.com/_/DotsSplashUi/data/batchexecute?rpcids=Fbv4je",
+                    data=f"f.req={quote(payload)}".encode(),
+                    headers={
+                        "User-Agent": "Mozilla/5.0",
+                        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                        "Referer": "https://news.google.com/",
+                    },
+                    method="POST",
+                )
+                try:
+                    with urlopen(req, timeout=12) as response:
+                        decoded = response.read(100000).decode("utf-8", "ignore")
+                    match = re.search(r'\[\\"garturlres\\",\\"(https?://.+?)\\",', decoded)
+                    if match:
+                        url = match.group(1).replace("\\/", "/")
+                except (HTTPError, URLError, TimeoutError):
+                    pass
+
     try:
         req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urlopen(req, timeout=12) as response:
