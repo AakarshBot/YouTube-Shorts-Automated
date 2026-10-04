@@ -140,7 +140,7 @@ Topic Fetcher is the source-of-truth handoff for Scriptwriter. Each selected hea
 - published_at
 - GNews description/summary
 
-The complete source URL is preserved for navigation and fetching. Query parameters and URL casing must not be stripped or normalised away.
+The complete source URL is preserved for navigation and fetching. Query parameters and URL casing must not be stripped or normalised away. Topic Fetcher stores that exact URL on the selected headline.
 
 Scriptwriter does not depend on Google News URL decoding and does not require a publisher page to be reachable. On selection:
 1. Try the supplied source URL with a normal direct HTTP request.
@@ -198,4 +198,6 @@ These stages are not the current active task. Preserve existing functions and ha
 - Topic Fetcher must pass title, URL, publisher, published_at and GNews description for every selectable headline on every desk.
 - Source URLs must not be lowercased or stripped of query parameters because the exact URL can be required to reach the intended page.
 - The previous failure caused by an arbitrary 80-character fallback-description threshold has been removed.
-- The current branch is being validated through GitHub Actions before any merge to main.
+- The current Scriptwriter unit suite and syntax checks pass on the latest tested branch state.
+- The GitHub Actions workflow still has a separate live Topic Fetcher smoke-test failure at the regional India/Pakistan/Sri Lanka assertion. This failure predates the Scriptwriter source-reader design and is not caused by the Scriptwriter unit tests.
+- Do not merge to main while the required CI workflow remains red.
