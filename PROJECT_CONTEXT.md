@@ -141,6 +141,8 @@ Do not add runtime dependencies or new API services solely to make Scriptwriter 
 
 Selected Topic Fetcher headline → source article → title options → manual title approval → one structured Scriptwriter generation → minimal deterministic validation → Test-page preview.
 
+If the title model returns no usable options, show an error and require a user-triggered retry; do not loop automatically.
+
 Improve/Re-run uses the same selected story/source and approved title, produces a genuinely different editorial angle, and keeps the original and improved versions available for manual selection.
 
 The current Test page generates and previews only the approved title, opening screen headline and spoken script. Description, hashtags and first/creator comment are deferred to Upload QC.
