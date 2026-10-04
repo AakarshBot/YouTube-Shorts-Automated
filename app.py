@@ -61,23 +61,6 @@ def reset_writer(story):
     st.session_state.manual_sources_attempted = False
 
 
-def run_writer(stage):
-    story = st.session_state.selected_story
-    try:
-        result = generate_script(story, st.session_state.source_evidence, source_stage=stage)
-        errors = validate_script(result)
-        if errors:
-            raise RuntimeError(" · ".join(errors))
-        st.session_state.writer_status = result["status"]
-        st.session_state.writer_reason = result.get("reason") or None
-        if result["status"] == "ready":
-            st.session_state.script_versions = [result]
-        return result
-    except Exception as exc:
-        st.session_state.script_error = str(exc)
-        return None
-
-
 if st.session_state.page == "home":
     st.title("YouTube Shorts Automated")
     st.markdown('<div class="sub">Build, test and publish Shorts through a controlled production pipeline.</div>', unsafe_allow_html=True)
@@ -223,7 +206,14 @@ elif st.session_state.page == "scriptwriter":
                             "text": article_text(story),
                         }
                         st.session_state.source_evidence = [primary]
-                        result = run_writer("primary")
+                        result = generate_script(story, st.session_state.source_evidence, source_stage="primary")
+                        errors = validate_script(result)
+                        if errors:
+                            raise RuntimeError(" · ".join(errors))
+                        st.session_state.writer_status = result["status"]
+                        st.session_state.writer_reason = result.get("reason") or None
+                        if result["status"] == "ready":
+                            st.session_state.script_versions = [result]
                     except (RuntimeError, ValueError):
                         result = None
 
@@ -233,7 +223,17 @@ elif st.session_state.page == "scriptwriter":
                             related = find_related_sources(story)
                         st.session_state.source_evidence.extend(related)
                         if related:
-                            run_writer("automatic")
+                            try:
+                                result = generate_script(story, st.session_state.source_evidence, source_stage="automatic")
+                                errors = validate_script(result)
+                                if errors:
+                                    raise RuntimeError(" · ".join(errors))
+                                st.session_state.writer_status = result["status"]
+                                st.session_state.writer_reason = result.get("reason") or None
+                                if result["status"] == "ready":
+                                    st.session_state.script_versions = [result]
+                            except Exception as exc:
+                                st.session_state.script_error = str(exc)
                         elif result:
                             st.session_state.writer_status = "needs_more_sources"
                             st.session_state.writer_reason = result.get("reason") or "The primary source needs more supporting information."
@@ -259,9 +259,19 @@ elif st.session_state.page == "scriptwriter":
                     added = manual_sources(urls.splitlines())
                     st.session_state.source_evidence.extend(added)
                     if added:
-                        result = run_writer("manual")
-                        if result and result["status"] == "needs_more_sources":
-                            st.session_state.writer_reason = result.get("reason") or "The available sources still do not contain enough information for a genuine Short."
+                        try:
+                            result = generate_script(story, st.session_state.source_evidence, source_stage="manual")
+                            errors = validate_script(result)
+                            if errors:
+                                raise RuntimeError(" · ".join(errors))
+                            st.session_state.writer_status = result["status"]
+                            st.session_state.writer_reason = result.get("reason") or None
+                            if result["status"] == "ready":
+                                st.session_state.script_versions = [result]
+                            else:
+                                st.session_state.writer_reason = result.get("reason") or "The available sources still do not contain enough information for a genuine Short."
+                        except Exception as exc:
+                            st.session_state.script_error = str(exc)
                     else:
                         st.session_state.writer_status = "needs_more_sources"
                         st.session_state.writer_reason = "The additional URLs could not provide readable source information."
