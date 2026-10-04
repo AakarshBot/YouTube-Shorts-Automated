@@ -152,7 +152,7 @@ def _clean(value):
     return re.sub(r"\s+", " ", str(value or "")).strip()
 
 def _url(value):
-    return _clean(value).split("?")[0].rstrip("/").lower()
+    return _clean(value).rstrip("/").lower()
 
 def _group_india_rows(rows, limit=25):
     single_stop = {
