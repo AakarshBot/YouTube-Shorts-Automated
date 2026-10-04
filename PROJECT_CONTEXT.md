@@ -133,13 +133,27 @@ The Scriptwriter should not constantly fail on secondary factory rules after gen
 
 ### Source handling
 
-Topic Fetcher supplies the selected story's source URL and source metadata. The Scriptwriter must receive usable source/article text derived from that selected source before generation.
+Topic Fetcher is the source-of-truth handoff for Scriptwriter. Each selected headline must carry:
+- title
+- URL
+- publisher
+- published_at
+- GNews description/summary
 
-Do not add runtime dependencies or new API services solely to make Scriptwriter more elaborate. Prefer existing repository capabilities and direct standard-library/simple implementations. A new dependency requires explicit approval.
+The complete source URL is preserved for navigation and fetching. Query parameters and URL casing must not be stripped or normalised away. Topic Fetcher stores that exact URL on the selected headline.
+
+Scriptwriter does not depend on Google News URL decoding and does not require a publisher page to be reachable. On selection:
+1. Try the supplied source URL with a normal direct HTTP request.
+2. Use the page's article element when available; otherwise use readable page text from the page.
+3. If the publisher returns an HTTP/network error, the URL is malformed, or the page contains insufficient readable text, use the Topic Fetcher's GNews description together with the selected headline as the factual source evidence.
+4. Do not impose an arbitrary minimum character count on the GNews description. Any non-empty GNews description is usable fallback evidence.
+5. Only fail when there is no readable publisher text and no usable GNews description.
+
+This makes source handling universal across desks without adding Playwright, a URL-decoder package, an article-extraction dependency or another API service. A publisher blocking automated requests must not stop the Scriptwriter from producing a factual first draft from the evidence already supplied by Topic Fetcher.
 
 ### Scriptwriter architecture for the current Test page
 
-Selected Topic Fetcher headline → source article (prefer the page's article element when available) → title options → manual title approval → one structured Scriptwriter generation → minimal deterministic validation → Test-page preview.
+Selected Topic Fetcher headline + GNews description → attempt publisher page → use article/page text when readable or GNews evidence when not → title options → manual title approval → one structured Scriptwriter generation → minimal deterministic validation → Test-page preview.
 
 If the title model returns no usable options, show an error and require a user-triggered retry; do not loop automatically.
 
@@ -171,10 +185,19 @@ These stages are not the current active task. Preserve existing functions and ha
 - app.py — Test dashboard.
 - tests/test_topic_fetcher.py — Topic Fetcher tests.
 - tests/test_scriptwriter.py — Scriptwriter objective validation tests.
-- .github/workflows/test.yml — CI, syntax checks and real-fetch smoke tests.
+- .github/workflows/test.yml — CI with deterministic syntax and unit checks.
 - requirements.txt — runtime dependencies.
 
 
 ### CI notes for current Scriptwriter work
 
-- Initial Scriptwriter validation tests caught a fixture error where a valid-headline test reused identical slide text. The validator was correct; the fixture was corrected.
+- Scriptwriter objective tests cover the first-slide word limit, slide count, duration target, headline format and duplicate-slide rejection.
+- Source-handling tests cover successful publisher reads, HTTP 400 fallback, pages without an article element, malformed source URLs and missing-evidence failure.
+- The current universal source handoff does not decode Google News redirects and does not depend on publisher access succeeding.
+- Do not add publisher-specific parsers, Google News-specific redirect logic, Playwright, trafilatura or other runtime dependencies unless explicitly approved.
+- Topic Fetcher must pass title, URL, publisher, published_at and GNews description for every selectable headline on every desk.
+- Source URLs must not be lowercased or stripped of query parameters because the exact URL can be required to reach the intended page.
+- The previous failure caused by an arbitrary 80-character fallback-description threshold has been removed.
+- The current Scriptwriter unit suite and syntax checks pass on the latest tested branch state.
+- CI must not depend on live GNews availability or minimum current-story counts. Live news volume is volatile and belongs to manual QA, not the correctness gate.
+- Do not merge to main while the required CI workflow remains red.

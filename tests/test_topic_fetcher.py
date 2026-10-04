@@ -57,3 +57,9 @@ def test_india_headlines_group_by_shared_title_entity():
     assert len(asia["headlines"]) == 2
     assert len(groups) == 3
     assert all(isinstance(row["published_at"], str) for group in groups for row in group["headlines"])
+
+
+def test_source_url_is_not_lowercased_or_stripped():
+    from topic_fetcher import _url
+    url = "https://Example.com/Story/ABC?Param=Value"
+    assert _url(url) == "https://Example.com/Story/ABC?Param=Value"

@@ -152,7 +152,7 @@ def _clean(value):
     return re.sub(r"\s+", " ", str(value or "")).strip()
 
 def _url(value):
-    return _clean(value).split("?")[0].rstrip("/").lower()
+    return _clean(value).rstrip("/")
 
 def _group_india_rows(rows, limit=25):
     single_stop = {
@@ -248,6 +248,7 @@ def fetch_topics(genre, exclude_urls=()):
                 grouped[label].append({
                     "title": title,
                     "url": url,
+                    "description": _clean(item.get("description")),
                     "publisher": _clean(item.get("publisher")),
                     "published_at": published,
                 })
@@ -274,6 +275,7 @@ def fetch_topics(genre, exclude_urls=()):
                         {
                             "title": r["title"],
                             "url": r["url"],
+                            "description": r["description"],
                             "publisher": r["publisher"],
                             "published_at": r["published_at"],
                         }
@@ -296,6 +298,7 @@ def fetch_topics(genre, exclude_urls=()):
                     {
                         "title": r["title"],
                         "url": r["url"],
+                        "description": r["description"],
                         "publisher": r["publisher"],
                         "published_at": r["published_at"].isoformat(),
                     }

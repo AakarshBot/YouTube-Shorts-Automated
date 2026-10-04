@@ -52,23 +52,35 @@ class _Text(HTMLParser):
             self.parts.append(data)
 
 
-def article_text(url):
-    if not url:
+def article_text(story):
+    if not story or not story.get("url"):
         raise ValueError("Selected story has no source URL.")
+
     try:
-        req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        req = Request(
+            story["url"],
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+        )
         with urlopen(req, timeout=12) as response:
             raw = response.read(300000).decode("utf-8", "ignore")
-    except (HTTPError, URLError, TimeoutError) as exc:
-        raise RuntimeError(f"Could not read the source article: {exc}") from exc
-    article = re.search(r"<article\b[\s\S]*?</article>", raw, flags=re.I)
-    target = article.group(0) if article else raw
-    parser = _Text()
-    parser.feed(re.sub(r"<head[\s\S]*?</head>", " ", target, flags=re.I))
-    text = re.sub(r"\s+", " ", html.unescape(" ".join(parser.parts))).strip()
-    if len(text) < 300:
-        raise RuntimeError("The source page did not contain enough readable article text.")
-    return text[:20000]
+        article = re.search(r"<article\b[\s\S]*?</article>", raw, flags=re.I)
+        target = article.group(0) if article else raw
+        parser = _Text()
+        parser.feed(re.sub(r"<head[\s\S]*?</head>", " ", target, flags=re.I))
+        text = re.sub(r"\s+", " ", html.unescape(" ".join(parser.parts))).strip()
+        if len(text) >= 300:
+            return text[:20000]
+    except (HTTPError, URLError, TimeoutError, ValueError):
+        pass
+
+    summary = re.sub(r"\s+", " ", html.unescape(str(story.get("description") or ""))).strip()
+    if summary:
+        return f'{story["title"]}. {summary}'
+    raise RuntimeError("The selected story has no readable source evidence.")
 
 
 def _groq(schema_name, schema, system, user):
