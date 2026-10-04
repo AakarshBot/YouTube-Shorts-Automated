@@ -203,11 +203,21 @@ The Scriptwriter test flow is:
 6. Scriptwriter performs the manual-source run using the new URLs plus all previously collected evidence.
 7. If the story is still not sufficient after that second additional-source run, dashboard stops with a clear Not enough information to create a Short message and the writer's reason.
 8. When ready, dashboard shows only the completed script and packaging needed for QC; raw article text is not displayed.
-9. Dashboard shows opening headline, every slide, total source count, title options, description, hashtags and first comment.
-10. User manually chooses a title and approves the version.
-11. Improve / Re-run is available before approval.
+9. Dashboard shows opening headline, every slide, total source count, title options, description, hashtags and first comment as editable QC fields.
+10. User can edit any of those fields, choose the strongest title, and approve the edited version or approve the generated version unchanged.
+11. Approval validates the edited package before the version becomes the Audio input.
+12. Improve / Re-run is available before approval.
 
 The selected Topic Fetcher headline and selected desk/genre remain the starting story inputs. The approved title is stored for later handoff only and is never passed into Scriptwriter generation.
+
+### Scriptwriter QC editing
+
+- Every editorial output field in a ready Scriptwriter result is editable during manual QC before approval: opening headline, every slide voiceover, every title option, description, hashtags and first comment.
+- The generated values are the starting values; the user may edit them or approve them unchanged.
+- Approval validates the edited package with the same deterministic Scriptwriter rules before saving it as the approved version.
+- The approved edited version, including the selected edited title, is the exact input passed to Audio.
+- The Scriptwriter status and source evidence are not manual QC fields; they remain controlled by the pipeline.
+- Once a version is approved, the dashboard shows it as approved rather than allowing further QC edits in that approved state.
 
 ## Top-5 — PLANNED
 
@@ -254,8 +264,8 @@ Stage 3 is narration only. No music, sound effects or other audio layers.
 
 ### Test dashboard
 1. User approves the Scriptwriter version.
-2. Dashboard moves to Audio automatically.
-3. Audio generates locally from the approved slide voiceovers.
+2. Dashboard moves to Audio immediately without blocking the page on TTS generation.
+3. User clicks Generate Audio to start local Chatterbox narration from the approved slide voiceovers.
 4. Dashboard previews the complete Short.
 5. Dashboard previews every slide separately.
 6. User can listen and manually approve the Audio.
@@ -275,7 +285,7 @@ Subtitles, Visuals, Renderer and Upload are not active. Preserve their existing 
 
 - PROJECT_CONTEXT.md — current source of truth.
 - topic_fetcher.py — completed Topic Fetcher.
-- app.py — Test dashboard through Audio. Dashboard logic is kept direct; no stage wrapper/helper functions.
+- app.py — Test dashboard through Audio. Scriptwriter QC fields are edited directly in the page; Audio generation is explicitly started from the Audio page. Dashboard logic is kept direct; no stage wrapper/helper functions.
 - scriptwriter.py — source-first, desk-aware Scriptwriter approved at 6/10; pending multiple test cases across desks.
 - audio.py — local Chatterbox narration for approved Scriptwriter slides; implemented and pending local generation/QC.
 - tests/test_topic_fetcher.py — Topic Fetcher tests.
