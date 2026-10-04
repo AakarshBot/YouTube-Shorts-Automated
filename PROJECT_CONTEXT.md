@@ -238,7 +238,7 @@ Stage 3 is narration only. No music, sound effects or other audio layers.
 
 ### Audio engine
 - Chatterbox is the approved local TTS engine.
-- The code uses Chatterbox-Turbo on CUDA-capable machines and Chatterbox-Nano on CPU.
+- The code uses the installed ChatterboxTurboTTS model on the available device. The current local installation exposes the Turbo class without a nano argument, so the factory does not pass an unsupported Nano flag.
 - The model runs locally; there is no paid TTS API or cloud audio generation in the factory.
 - A single channel narrator is preferred for long-term identity.
 - If `audio_reference.wav` exists in the repo root, it is used as the narrator reference. `AUDIO_REFERENCE` may override that path. If no reference exists, the model's built-in voice is used.
@@ -267,6 +267,7 @@ Stage 3 is narration only. No music, sound effects or other audio layers.
 - Local generated files live under `generated_audio/` and are not committed.
 - Output paths are derived from the script content so Redo Audio replaces the current take for that Short rather than creating uncontrolled file growth.
 - The reference conditioning optimisation is required for acceptable local Audio runtime; re-running reference preparation per slide is not allowed.
+- Chatterbox model loading must call the installed from_pretrained(device=...) API directly; do not pass unsupported arguments such as nano=True.
 - Audio output remains available as the handoff for Subtitles and later stages.
 
 ### Test dashboard
