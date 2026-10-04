@@ -1,5 +1,6 @@
 import streamlit as st
 
+from audio import generate_audio
 from scriptwriter import article_text, find_related_sources, generate_script, manual_sources, validate_script
 from topic_fetcher import DESKS, GENRES, fetch_topics
 
@@ -44,6 +45,10 @@ for key, value in {
     "writer_reason": None,
     "auto_sources_attempted": False,
     "manual_sources_attempted": False,
+    "audio_result": None,
+    "audio_error": None,
+    "audio_approved": False,
+    "audio_run": 1,
 }.items():
     st.session_state.setdefault(key, value)
 
@@ -172,6 +177,10 @@ elif st.session_state.page == "topics":
                                 st.session_state.writer_reason = None
                                 st.session_state.auto_sources_attempted = False
                                 st.session_state.manual_sources_attempted = False
+                                st.session_state.audio_result = None
+                                st.session_state.audio_error = None
+                                st.session_state.audio_approved = False
+                                st.session_state.audio_run = 1
                                 st.session_state.page = "scriptwriter"
                                 st.rerun()
 
@@ -316,6 +325,11 @@ elif st.session_state.page == "scriptwriter":
                     st.session_state.approved_version = index
                     st.session_state.approved_title = choice
                     st.session_state.script_error = None
+                    st.session_state.audio_result = None
+                    st.session_state.audio_error = None
+                    st.session_state.audio_approved = False
+                    st.session_state.audio_run = 1
+                    st.session_state.page = "audio"
                     st.rerun()
 
             if st.session_state.script_error:
@@ -339,3 +353,69 @@ elif st.session_state.page == "scriptwriter":
                         except Exception as exc:
                             st.session_state.script_error = str(exc)
                     st.rerun()
+
+elif st.session_state.page == "audio":
+    if st.button("← Scriptwriter"):
+        st.session_state.page = "scriptwriter"
+        st.rerun()
+
+    st.title("Audio")
+    st.markdown('<div class="stage"><span class="done">01 Topic Fetcher</span><span class="done">02 Scriptwriter</span><span class="active">03 Audio</span><span>04 Subtitles</span><span>05 Visuals</span><span>06 Renderer</span><span>07 Upload</span></div>', unsafe_allow_html=True)
+
+    approved_index = st.session_state.approved_version
+    if approved_index is None or approved_index >= len(st.session_state.script_versions):
+        st.error("Approve a Scriptwriter version first.")
+    else:
+        version = st.session_state.script_versions[approved_index]
+        st.markdown(f'<div class="headline">{version["opening_headline"]}</div>', unsafe_allow_html=True)
+        st.caption("Narration only. The approved script is the only Audio input.")
+
+        if st.session_state.audio_result is None and st.session_state.audio_error is None:
+            with st.spinner("Generating narration locally…"):
+                try:
+                    st.session_state.audio_result = generate_audio(version, st.session_state.audio_run)
+                except Exception as exc:
+                    st.session_state.audio_error = str(exc)
+            st.rerun()
+
+        if st.session_state.audio_error:
+            st.error(st.session_state.audio_error)
+            if st.button("Try Audio Again", type="primary", use_container_width=True):
+                st.session_state.audio_error = None
+                st.rerun()
+
+        result = st.session_state.audio_result
+        if result:
+            st.subheader("Full Short")
+            st.audio(result["full_path"], format="audio/wav")
+            st.caption(f'{result["model"]} · {result["reference"]} · {result["duration"]:.1f}s')
+
+            st.subheader("Slide previews")
+            for number, (slide, path) in enumerate(zip(version["slides"], result["slide_paths"]), 1):
+                st.markdown(f'<div class="script-card"><h4>Slide {number}</h4><div>{slide["voiceover"]}</div></div>', unsafe_allow_html=True)
+                st.audio(path, format="audio/wav")
+
+            if st.session_state.audio_approved:
+                st.success("Audio approved.")
+            else:
+                approve, redo = st.columns(2)
+                with approve:
+                    if st.button("Approve Audio", type="primary", use_container_width=True):
+                        st.session_state.audio_approved = True
+                        st.rerun()
+                with redo:
+                    if st.button("Redo Audio", use_container_width=True):
+                        st.session_state.audio_result = None
+                        st.session_state.audio_error = None
+                        st.session_state.audio_approved = False
+                        st.session_state.audio_run += 1
+                        st.rerun()
+
+            if st.session_state.audio_approved:
+                if st.button("Redo Audio", use_container_width=True):
+                    st.session_state.audio_result = None
+                    st.session_state.audio_error = None
+                    st.session_state.audio_approved = False
+                    st.session_state.audio_run += 1
+                    st.rerun()
+                st.button("Subtitles — coming later", disabled=True, use_container_width=True)
