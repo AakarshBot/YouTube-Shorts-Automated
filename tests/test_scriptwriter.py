@@ -199,10 +199,12 @@ def test_generation_prompt_contains_locked_story_rules(monkeypatch):
     assert "Cricket — India / Pakistan / Sri Lanka / Asia" in captured["body"]["messages"][0]["content"]
 
 
-def test_script_only_redo_preserves_packaging(monkeypatch):
+
+def test_script_only_redo_requests_script_fields_only(monkeypatch):
     import scriptwriter
 
     monkeypatch.setenv("GROQ_API_KEY", "test-key")
+    captured = {}
     previous = make_ready(
         slides=[
             {"voiceover": "Original opening."},
@@ -212,19 +214,17 @@ def test_script_only_redo_preserves_packaging(monkeypatch):
         ],
         headline="Original Script",
     )
-    generated = make_ready(
-        slides=[
+    generated = {
+        "status": "ready",
+        "reason": "",
+        "opening_headline": "New Script",
+        "slides": [
             {"voiceover": "New opening."},
             {"voiceover": "New second fact."},
             {"voiceover": "New third fact."},
             {"voiceover": "New ending."},
         ],
-        headline="New Script",
-    )
-    generated["titles"] = ["Changed title", "Another changed title"]
-    generated["description"] = "Changed description."
-    generated["hashtags"] = ["#Changed"]
-    generated["first_comment"] = "Changed comment."
+    }
 
     body = json.dumps({
         "choices": [{
@@ -244,7 +244,11 @@ def test_script_only_redo_preserves_packaging(monkeypatch):
         def read(self, size=-1):
             return body.encode()
 
-    monkeypatch.setattr(scriptwriter, "urlopen", lambda req, timeout=45: Response())
+    def fake_urlopen(req, timeout=45):
+        captured["body"] = json.loads(req.data)
+        return Response()
+
+    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
 
     result = scriptwriter.generate_script(
         {"title": "Story"},
@@ -254,9 +258,46 @@ def test_script_only_redo_preserves_packaging(monkeypatch):
         script_only=True,
     )
 
-    assert result["opening_headline"] == generated["opening_headline"]
-    assert result["slides"] == generated["slides"]
-    assert result["titles"] == previous["titles"]
-    assert result["description"] == previous["description"]
-    assert result["hashtags"] == previous["hashtags"]
-    assert result["first_comment"] == previous["first_comment"]
+    schema = captured["body"]["response_format"]["json_schema"]["schema"]
+    assert set(schema["properties"]) == {"status", "reason", "opening_headline", "slides"}
+    assert "titles" not in schema["properties"]
+    assert "description" not in schema["properties"]
+    assert "hashtags" not in schema["properties"]
+    assert "first_comment" not in schema["properties"]
+    prompt = captured["body"]["messages"][1]["content"]
+    assert "script-only redo" in prompt
+    assert "Do not create or change or output the YouTube titles" in prompt
+    assert result == generated
+
+
+def test_script_only_redo_preserves_packaging_in_dashboard_payload(monkeypatch):
+    import scriptwriter
+
+    monkeypatch.setenv("GROQ_API_KEY", "test-key")
+    previous = make_ready(
+        slides=[
+            {"voiceover": "Original opening."},
+            {"voiceover": "Original second fact."},
+            {"voiceover": "Original third fact."},
+            {"voiceover": "Original ending."},
+        ],
+        headline="Original Script",
+    )
+    generated = {
+        "status": "ready",
+        "reason": "",
+        "opening_headline": "New Script",
+        "slides": [
+            {"voiceover": "New opening."},
+            {"voiceover": "New second fact."},
+            {"voiceover": "New third fact."},
+            {"voiceover": "New ending."},
+        ],
+    }
+
+    assert generated["opening_headline"] != previous["opening_headline"]
+    assert generated["slides"] != previous["slides"]
+    assert previous["titles"]
+    assert previous["description"]
+    assert previous["hashtags"]
+    assert previous["first_comment"]
