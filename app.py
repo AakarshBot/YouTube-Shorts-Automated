@@ -200,7 +200,7 @@ elif st.session_state.page == "scriptwriter":
         if not st.session_state.source_text and not st.session_state.title_options and not st.session_state.title_error:
             with st.spinner("Reading the source and creating title options…"):
                 try:
-                    st.session_state.source_text = article_text(story["url"])
+                    st.session_state.source_text = article_text(story)
                     st.session_state.title_options = generate_titles(story, st.session_state.source_text)
                 except Exception as exc:
                     st.session_state.title_error = str(exc)
