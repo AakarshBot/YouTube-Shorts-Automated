@@ -132,7 +132,7 @@ When the status is ready, the same Scriptwriter generation also produces:
 
 Packaging is written only after the completed Short is understood.
 
-On an initial generation, Scriptwriter creates both the completed narration and its packaging. On a script redo, only the opening screen headline and slide-by-slide voiceover are regenerated; the previous draft's titles, description, hashtags and first/creator comment are preserved exactly for manual QC.
+On an initial generation, Scriptwriter creates both the completed narration and its packaging. On a script redo, Groq receives a script-only output schema and generates only the opening screen headline plus slide-by-slide voiceover. The previous draft's titles, description, hashtags and first/creator comment are carried forward directly by the dashboard; the model does not generate replacement packaging.
 
 Titles must:
 - Accurately represent the completed Short.
@@ -164,21 +164,31 @@ First comment:
 - The previous version is supplied to the writer for comparison.
 - The new version must use a genuinely different editorial angle or narrative spine.
 - It must not merely swap words, reorder sentences or lightly rephrase the same script.
-- A redo regenerates only the opening screen headline and slide-by-slide voiceover.
-- The previous version's YouTube titles, description, hashtags and first/creator comment are preserved exactly and remain editable in the new QC version.
+- Redo generation is script-only: Groq is asked to return only status, reason, opening_headline and slides.
+- The redo must regenerate only the opening screen headline and slide-by-slide voiceover.
+- The previous version's YouTube titles, description, hashtags and first/creator comment are copied into the redo by the dashboard unchanged; they are not generated again by Groq.
+- Those preserved packaging fields remain editable during the new QC pass.
+- The script-only response is validated for the normal factual, slide-count and timing rules after the preserved packaging is attached by the dashboard.
 - If the evidence is still insufficient, the dashboard tells the user why and keeps the redo source-URL field available for another user-supplied source attempt.
 - Original and redo versions remain visible for manual QC.
 - Approved title/version is never supplied to story generation.
 
 ### Output
 
-A ready result contains:
+A ready initial-generation result contains:
 - opening_headline
 - slide-by-slide voiceover
 - multiple YouTube title options
 - description
 - hashtags
 - first/creator comment
+
+A ready script-redo model result contains only:
+- opening_headline
+- slide-by-slide voiceover
+- status/reason
+
+The dashboard then attaches the previous packaging fields unchanged before validation and manual QC.
 
 A non-ready result contains:
 - status=needs_more_sources
@@ -219,9 +229,10 @@ The Scriptwriter test flow is:
 12. User can edit any of those fields, choose the strongest title, and approve the edited version or approve the generated version unchanged.
 13. Approval validates the edited package before the version becomes the Audio input.
 14. Redo Script is available before approval and shows an optional additional-source URL field.
-15. Redo Script regenerates only the opening screen headline and slide voiceovers; the previous packaging fields are carried into the new version unchanged for manual editing.
-16. If a redo says more source information is needed, the dashboard shows the reason and keeps the user-provided source URL field available instead of hiding it because a prior draft already exists.
-17. Same-page actions render from the state mutated during the current Streamlit interaction; do not add an extra `st.rerun()` just to refresh the same page. Full reruns remain for page transitions and actions such as retrying or starting a new generation cycle that cannot continue correctly in the current execution.
+15. Redo Script regenerates only the opening screen headline and slide voiceovers; the model is not asked to generate packaging.
+16. The dashboard carries the previous titles, description, hashtags and first/creator comment into the redo unchanged, then exposes them for manual editing.
+17. If a redo says more source information is needed, the dashboard shows the reason and keeps the user-provided source URL field available instead of hiding it because a prior draft already exists.
+18. Same-page actions render from the state mutated during the current Streamlit interaction; do not add an extra `st.rerun()` just to refresh the same page. Full reruns remain for page transitions and actions such as retrying or starting a new generation cycle that cannot continue correctly in the current execution.
 
 The selected Topic Fetcher headline and selected desk/genre remain the starting story inputs. The approved title is stored for later handoff only and is never passed into Scriptwriter generation.
 
@@ -305,7 +316,7 @@ Subtitles, Visuals, Renderer and Upload are not active. Preserve their existing 
 - PROJECT_CONTEXT.md — current source of truth.
 - topic_fetcher.py — completed Topic Fetcher.
 - app.py — Test dashboard through Audio. Pipeline modules are loaded only when their stage is needed; Scriptwriter QC fields are edited directly in the page in a fixed editorial order with separated slide cards and packaging sections; Audio generation is explicitly started from the Audio page. Script redo accepts optional user-supplied source URLs, regenerates only the opening headline and slides, and preserves the previous packaging fields unchanged. Same-page actions avoid redundant second full reruns; full reruns are retained for page transitions and actions that genuinely require a new execution. Dashboard logic is kept direct; no stage wrapper/helper functions.
-- scriptwriter.py — source-first, desk-aware Scriptwriter approved at 6/10; pending multiple test cases across desks. Supports script-only redo mode, preserving the previous packaging fields when generating a replacement script.
+- scriptwriter.py — source-first, desk-aware Scriptwriter approved at 6/10; pending multiple test cases across desks. Initial generation uses the full output contract; script redo uses a direct script-only output contract and leaves packaging preservation to app.py.
 - audio.py — local Chatterbox narration for approved Scriptwriter slides; implemented and pending local generation/QC.
 - tests/test_topic_fetcher.py — Topic Fetcher tests.
 - tests/test_scriptwriter.py — Scriptwriter tests.
