@@ -35,10 +35,12 @@ def generate_audio(version, run_number=1):
         file.unlink()
 
     reference = REFERENCE if REFERENCE.is_file() else None
+    if reference:
+        MODEL.prepare_conditionals(str(reference), exaggeration=0.5)
+
     waves = []
     paths = []
     durations = []
-    base_exaggeration = 0.5
 
     for number, slide in enumerate(slides, 1):
         text = re.sub(r"\s+", " ", str(slide.get("voiceover", ""))).strip()
@@ -49,33 +51,13 @@ def generate_audio(version, run_number=1):
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
 
-        exaggeration = base_exaggeration
-        cfg_weight = 0.5
         temperature = 0.8
         if number == 1:
-            exaggeration, cfg_weight, temperature = 0.62, 0.44, 0.88
+            temperature = 0.88
         elif number == len(slides):
-            exaggeration, cfg_weight, temperature = 0.56, 0.48, 0.84
-        if "!" in text or "?" in text:
-            exaggeration = min(0.75, exaggeration + 0.06)
-        if re.search(r"\b\d", text):
-            cfg_weight = 0.46
+            temperature = 0.84
 
-        if reference:
-            wav = MODEL.generate(
-                text,
-                audio_prompt_path=str(reference),
-                exaggeration=exaggeration,
-                cfg_weight=cfg_weight,
-                temperature=temperature,
-            )
-        else:
-            wav = MODEL.generate(
-                text,
-                exaggeration=exaggeration,
-                cfg_weight=cfg_weight,
-                temperature=temperature,
-            )
+        wav = MODEL.generate(text, temperature=temperature)
 
         wav = wav.detach().cpu()
         if wav.ndim == 1:
