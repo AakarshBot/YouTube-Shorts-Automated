@@ -23,9 +23,9 @@ def generate_audio(version, run_number=1):
         raise RuntimeError("Chatterbox Audio is not installed in this environment. Install the approved local Audio dependencies and run the app again.") from exc
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    kind = "turbo" if device == "cuda" else "nano"
-    if MODEL is None or MODEL_KIND != kind:
-        MODEL = ChatterboxTurboTTS.from_pretrained(device=device, nano=kind == "nano")
+    kind = "turbo"
+    if MODEL is None:
+        MODEL = ChatterboxTurboTTS.from_pretrained(device=device)
         MODEL_KIND = kind
 
     key = sha1(" ".join(slide["voiceover"] for slide in slides).encode()).hexdigest()[:12]
