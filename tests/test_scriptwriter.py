@@ -1,6 +1,6 @@
 import json
 
-from scriptwriter import MAX_WORDS, validate_script
+from scriptwriter import MAX_SLIDES, MAX_WORDS, MIN_SLIDES, validate_script
 
 
 def make_ready(slides=None, headline="Rohit Sharma Praise"):
@@ -24,9 +24,10 @@ def test_valid_ready_output():
     assert validate_script(make_ready()) == []
 
 
-def test_slide_count_is_not_fixed():
-    script = make_ready(slides=[{"voiceover": f"Important fact {i}"} for i in range(6)])
-    assert validate_script(script) == []
+def test_slide_count_must_be_four_or_five():
+    assert validate_script(make_ready(slides=[{"voiceover": f"Important fact {i}"} for i in range(3)]))[0] == f"Script must contain {MIN_SLIDES}–{MAX_SLIDES} slides."
+    assert validate_script(make_ready(slides=[{"voiceover": f"Important fact {i}"} for i in range(5)])) == []
+    assert validate_script(make_ready(slides=[{"voiceover": f"Important fact {i}"} for i in range(6)]))[0] == f"Script must contain {MIN_SLIDES}–{MAX_SLIDES} slides."
 
 
 def test_first_slide_must_be_under_fourteen_words():
@@ -187,7 +188,8 @@ def test_generation_prompt_contains_locked_story_rules(monkeypatch):
     )
     prompt = captured["body"]["messages"][1]["content"]
     assert "Write from scratch after understanding the full story." in prompt
-    assert "There is no fixed slide count." in prompt
+    assert "Use exactly 4 or 5 slides." in prompt
+    assert "There is no fixed slide count." not in prompt
     assert "65 words or fewer" in prompt
     assert "use their proper name" in prompt
     assert "Approved YouTube title" not in prompt
