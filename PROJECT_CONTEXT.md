@@ -185,7 +185,7 @@ These stages are not the current active task. Preserve existing functions and ha
 - app.py — Test dashboard.
 - tests/test_topic_fetcher.py — Topic Fetcher tests.
 - tests/test_scriptwriter.py — Scriptwriter objective validation tests.
-- .github/workflows/test.yml — CI, syntax checks and real-fetch smoke tests.
+- .github/workflows/test.yml — CI with deterministic syntax and unit checks.
 - requirements.txt — runtime dependencies.
 
 
@@ -199,5 +199,5 @@ These stages are not the current active task. Preserve existing functions and ha
 - Source URLs must not be lowercased or stripped of query parameters because the exact URL can be required to reach the intended page.
 - The previous failure caused by an arbitrary 80-character fallback-description threshold has been removed.
 - The current Scriptwriter unit suite and syntax checks pass on the latest tested branch state.
-- The GitHub Actions workflow still has a separate live Topic Fetcher smoke-test failure at the regional India/Pakistan/Sri Lanka assertion. This failure predates the Scriptwriter source-reader design and is not caused by the Scriptwriter unit tests.
+- CI must not depend on live GNews availability or minimum current-story counts. Live news volume is volatile and belongs to manual QA, not the correctness gate.
 - Do not merge to main while the required CI workflow remains red.
