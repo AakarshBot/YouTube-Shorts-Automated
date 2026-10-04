@@ -171,7 +171,7 @@ These stages are not the current active task. Preserve existing functions and ha
 - app.py — Test dashboard.
 - tests/test_topic_fetcher.py — Topic Fetcher tests.
 - tests/test_scriptwriter.py — Scriptwriter objective validation tests.
-- .github/workflows/test.yml — CI and real-fetch smoke tests.
+- .github/workflows/test.yml — CI, syntax checks and real-fetch smoke tests.
 - requirements.txt — runtime dependencies.
 
 
