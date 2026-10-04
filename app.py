@@ -9,7 +9,6 @@ st.markdown("""
 .stApp{background:var(--bg);color:var(--ink)}
 .block-container{max-width:1100px;padding:42px 34px 64px}
 h1{font-size:2.5rem;letter-spacing:-.04em}
-h2{letter-spacing:-.03em}
 .sub{color:var(--muted);margin-top:-10px}
 .stage{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0}
 .stage span{border:1px solid var(--line);padding:8px 12px;border-radius:999px;background:var(--card);font-size:.82rem}
@@ -57,7 +56,7 @@ elif st.session_state.page == "sports":
 else:
     st.button("← Genres", on_click=go, args=("sports",))
     st.title(st.session_state.genre)
-    st.markdown('<div class="stage"><span class="active">01 Topic Fetcher</span><span>02 Scriptwriter</span><span>03 Audio</span><span>04 Subtitles</span><span>05 Visuals</span><span>06 Renderer</span><span>07 Metadata QC</span><span>08 Upload</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="stage"><span class="active">01 Topic Fetcher</span><span>02 Scriptwriter</span><span>03 Audio</span><span>04 Subtitles</span><span>05 Visuals</span><span>06 Renderer</span><span>07 Upload</span></div>', unsafe_allow_html=True)
 
     if st.button("Fetch 20 stories", type="primary"):
         with st.spinner("Finding current stories…"):
