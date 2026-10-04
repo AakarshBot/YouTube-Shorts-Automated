@@ -48,19 +48,6 @@ for key, value in {
     st.session_state.setdefault(key, value)
 
 
-def reset_writer(story):
-    st.session_state.selected_story = story
-    st.session_state.source_evidence = []
-    st.session_state.script_versions = []
-    st.session_state.approved_title = None
-    st.session_state.approved_version = None
-    st.session_state.script_error = None
-    st.session_state.writer_status = None
-    st.session_state.writer_reason = None
-    st.session_state.auto_sources_attempted = False
-    st.session_state.manual_sources_attempted = False
-
-
 if st.session_state.page == "home":
     st.title("YouTube Shorts Automated")
     st.markdown('<div class="sub">Build, test and publish Shorts through a controlled production pipeline.</div>', unsafe_allow_html=True)
@@ -175,7 +162,16 @@ elif st.session_state.page == "topics":
                             st.markdown(f'<div class="headline">{h["title"]}</div>', unsafe_allow_html=True)
                             st.markdown(f"<div class='meta'>{h['publisher']} · {h['published_at'][:16].replace('T',' ')} · <a href='{h['url']}' target='_blank'>Source</a></div>", unsafe_allow_html=True)
                             if st.button("Use this story →", key=f"pick-{h['url']}-{index}"):
-                                reset_writer(h)
+                                st.session_state.selected_story = h
+                                st.session_state.source_evidence = []
+                                st.session_state.script_versions = []
+                                st.session_state.approved_title = None
+                                st.session_state.approved_version = None
+                                st.session_state.script_error = None
+                                st.session_state.writer_status = None
+                                st.session_state.writer_reason = None
+                                st.session_state.auto_sources_attempted = False
+                                st.session_state.manual_sources_attempted = False
                                 st.session_state.page = "scriptwriter"
                                 st.rerun()
 
@@ -198,6 +194,7 @@ elif st.session_state.page == "scriptwriter":
         if not st.session_state.source_evidence and not st.session_state.script_error:
             with st.spinner("Reading the source and writing the Short…"):
                 try:
+                    primary_error = None
                     try:
                         primary = {
                             "title": story["title"],
@@ -205,6 +202,11 @@ elif st.session_state.page == "scriptwriter":
                             "publisher": story.get("publisher", ""),
                             "text": article_text(story),
                         }
+                    except (RuntimeError, ValueError) as exc:
+                        primary = None
+                        primary_error = str(exc)
+
+                    if primary:
                         st.session_state.source_evidence = [primary]
                         result = generate_script(story, st.session_state.source_evidence, source_stage="primary")
                         errors = validate_script(result)
@@ -214,32 +216,41 @@ elif st.session_state.page == "scriptwriter":
                         st.session_state.writer_reason = result.get("reason") or None
                         if result["status"] == "ready":
                             st.session_state.script_versions = [result]
-                    except (RuntimeError, ValueError):
-                        result = None
 
-                    if result is None or (result["status"] == "needs_more_sources" and not st.session_state.auto_sources_attempted):
+                    if (
+                        primary_error
+                        or (
+                            st.session_state.writer_status == "needs_more_sources"
+                            and not st.session_state.auto_sources_attempted
+                        )
+                    ):
                         st.session_state.auto_sources_attempted = True
                         with st.spinner("The story needs more context. Finding related sources…"):
                             related = find_related_sources(story)
-                        st.session_state.source_evidence.extend(related)
+                        if primary:
+                            st.session_state.source_evidence.extend(related)
+                        else:
+                            st.session_state.source_evidence = related
                         if related:
-                            try:
-                                result = generate_script(story, st.session_state.source_evidence, source_stage="automatic")
-                                errors = validate_script(result)
-                                if errors:
-                                    raise RuntimeError(" · ".join(errors))
-                                st.session_state.writer_status = result["status"]
-                                st.session_state.writer_reason = result.get("reason") or None
-                                if result["status"] == "ready":
-                                    st.session_state.script_versions = [result]
-                            except Exception as exc:
-                                st.session_state.script_error = str(exc)
-                        elif result:
-                            st.session_state.writer_status = "needs_more_sources"
-                            st.session_state.writer_reason = result.get("reason") or "The primary source needs more supporting information."
+                            result = generate_script(
+                                story,
+                                st.session_state.source_evidence,
+                                source_stage="automatic",
+                            )
+                            errors = validate_script(result)
+                            if errors:
+                                raise RuntimeError(" · ".join(errors))
+                            st.session_state.writer_status = result["status"]
+                            st.session_state.writer_reason = result.get("reason") or None
+                            if result["status"] == "ready":
+                                st.session_state.script_versions = [result]
                         else:
                             st.session_state.writer_status = "needs_more_sources"
-                            st.session_state.writer_reason = "The selected source could not be read, so more source information is needed."
+                            st.session_state.writer_reason = (
+                                primary_error
+                                or st.session_state.writer_reason
+                                or "More source information is needed."
+                            )
                 except Exception as exc:
                     st.session_state.script_error = str(exc)
 
