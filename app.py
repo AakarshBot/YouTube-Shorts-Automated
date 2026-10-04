@@ -173,12 +173,10 @@ elif st.session_state.page == "topics":
                             st.markdown(f'<div class="headline">{h["title"]}</div>', unsafe_allow_html=True)
                             st.markdown(f"<div class='meta'>{h['publisher']} · {h['published_at'][:16].replace('T',' ')} · <a href='{h['url']}' target='_blank'>Source</a></div>", unsafe_allow_html=True)
                             if st.button("Use this story →", key=f"pick-{h['url']}-{index}"):
-                                from gnews.utils.utils import process_url
+                                from gnews.utils.utils import resolve_url
 
                                 selected = dict(h)
-                                resolved = process_url(selected, [], None)
-                                if resolved:
-                                    selected["url"] = resolved
+                                selected["url"] = resolve_url(selected["url"])
                                 st.session_state.selected_story = selected
                                 st.session_state.source_evidence = []
                                 st.session_state.script_versions = []
