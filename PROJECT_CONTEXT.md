@@ -7,7 +7,7 @@ Current source of truth. Read before every edit and replace this file completely
 - Test first, Live second. Build and approve functionality in Test before Live.
 - No wrappers, adapters, compatibility layers, proxy functions or scaffolding. Delete and rewrite code directly when the current approach is wrong.
 - ranahaani/GNews is the approved Google News source. Use the maintained gnews package; do not copy its source or build another news client.
-- No new runtime dependencies or API services unless explicitly approved. The local Groq key is read directly from the repo-root `.env` as `GROQ_API_KEY` when it is not already present in the environment; normal `.env` spacing, optional `export` and UTF-8 BOM are accepted; never store the key itself in code or CI. Groq requests use a browser-style `User-Agent` because the API edge can reject bare Python `urllib` clients with Cloudflare error 1010.
+- No new runtime dependencies or API services unless explicitly approved. The local Groq key is read directly from the repo-root `.env` as `GROQ_API_KEY` when it is not already present in the environment; normal `.env` spacing, optional `export` and UTF-8 BOM are accepted; never store the key itself in code or CI. Groq calls use only the API's required `Authorization` and `Content-Type` headers.
 - AakarshBot/Final-Shorts is reference material only, not a code source.
 - English only for now. Language support comes later.
 - Final story selection is manual. CI passing is technical validation, not editorial approval.
@@ -44,19 +44,15 @@ The 7/10 rating is the approved manual-QC rating. Do not reopen or broaden Topic
 - Do not add Playwright, another news service, a custom Google News client or copied GNews code merely to reduce runtime.
 - A sub-20-second first fetch cannot be guaranteed from application-side concurrency alone while those constraints remain.
 
-### Topic Fetcher runtime optimisation — ACTIVE
-
-The Topic Fetcher's editorial behaviour is unchanged. Runtime work is limited to execution speed: independent GNews pill searches now run concurrently with no artificial 8-worker ceiling. No queries, filters, grouping, story counts, handovers or output fields are changed.
-
-The main remaining runtime cost is inside maintained GNews 0.8.2: its RSS result processing attempts URL resolution for returned Google News links, including a separate HTTP HEAD request per article when Playwright is unavailable. The project must not bypass or replace GNews with a custom news client, add Playwright or add another service merely to improve speed. A sub-20-second first fetch therefore cannot be guaranteed solely from application-side concurrency without changing one of those constraints.
-
-### Scriptwriter — NEXT ACTIVE STAGE
+### Scriptwriter — ACTIVE
 
 The current Scriptwriter work is limited to the Scriptwriter Test page.
 
 The Test dashboard is sequential: manually selecting a headline in Topic Fetcher is the Scriptwriter trigger. Standalone Scriptwriter tests will only be added when explicitly requested.
 
 The Test page first generates title options for the selected story and presents them in a dropdown. The user manually approves one title. Only after that approval is the opening screen headline and spoken script generated.
+
+Groq requests are made directly inside the two generation functions; no generic API wrapper or Groq client dependency is used.
 
 ### Non-negotiable editorial rules
 
@@ -112,7 +108,7 @@ The first comment is an editorial output, not a generic CTA.
 - It must not default to generic prompts such as “What do you think?” or “What do you make of this?” when a stronger story-specific question is possible.
 - Do not automatically append “subscribe for more” or similar boilerplate.
 - The comment should sound like a human editor opening a conversation, not an automated engagement prompt.
-- The backup factory's useful principle is retained: the generated story-specific comment is preferred over a mechanical fallback. The new factory should improve this by making the first-run model responsible for producing the conversation starter correctly.
+- Generate a story-specific first/creator comment. Do not use a mechanical fallback or generic engagement boilerplate.
 
 ### Improve Script behaviour
 
@@ -213,5 +209,8 @@ These stages are not the current active task. Preserve existing functions and ha
 - Source URLs must not be lowercased or stripped of query parameters because the exact URL can be required to reach the intended page.
 - The previous failure caused by an arbitrary 80-character fallback-description threshold has been removed.
 - The current Scriptwriter unit suite and syntax checks pass on the latest tested branch state.
+- The dashboard keeps only state required for navigation, source handoff, title approval, script versions and manual QC; duplicate `desk` and `title_choice` state has been removed.
+- Title-generation retry reuses an already-fetched source when available, and script-generation errors retain the approved title so the user-triggered retry remains usable.
+- Do not add browser-spoofing headers, a Groq SDK dependency or retry/repair layers solely to work around Cloudflare error 1010; treat an HTTP 403/1010 as an edge access problem unless the exact request failure proves otherwise.
 - CI must not depend on live GNews availability or minimum current-story counts. Live news volume is volatile and belongs to manual QA, not the correctness gate.
 - Do not merge to main while the required CI workflow remains red.

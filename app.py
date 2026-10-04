@@ -30,8 +30,8 @@ div.stButton>button:disabled{background:#efede8;color:#8a877f;border-color:#ddd9
 """, unsafe_allow_html=True)
 
 for key, value in {
-    "page":"home","desk":None,"genre":None,"topics":[],"seen_urls":set(),
-    "selected_story":None,"source_text":"","title_options":[],"title_choice":None,
+    "page":"home","genre":None,"topics":[],"seen_urls":set(),
+    "selected_story":None,"source_text":"","title_options":[],
     "approved_title":None,"script_versions":[],"script_approved":None,
     "title_error":None,"script_error":None,
 }.items():
@@ -69,13 +69,12 @@ elif st.session_state.page == "deep-dive":
     st.title("Deep-Dive")
     for desk in DESKS:
         if st.button(desk, use_container_width=True):
-            st.session_state.desk = desk
+            st.session_state.topics = []
+            st.session_state.seen_urls = set()
             if desk == "Sports":
                 st.session_state.page = "sports"
             else:
                 st.session_state.genre = desk
-                st.session_state.topics = []
-                st.session_state.seen_urls = set()
                 st.session_state.page = "topics"
             st.rerun()
 
@@ -93,7 +92,7 @@ elif st.session_state.page == "sports":
             st.rerun()
 
 elif st.session_state.page == "topics":
-    if st.session_state.desk == "Sports":
+    if st.session_state.genre in GENRES:
         if st.button("← Sports"):
             st.session_state.page = "sports"
             st.rerun()
@@ -144,42 +143,43 @@ elif st.session_state.page == "topics":
 
         st.caption(f"{len(topics)} {pill} pills")
         for item in topics:
-            if st.session_state.genre == "Cricket — India / Pakistan / Sri Lanka / Asia" and item["topic"] == "India" and "groups" in item:
-                with st.expander(f"India · {len(item['groups'])} title pills"):
-                    for group in item["groups"]:
-                        with st.expander(f"{group['topic']} · {len(group['headlines'])} headlines"):
-                            for index, h in enumerate(group["headlines"]):
-                                st.markdown(f'<div class="headline">{h["title"]}</div>', unsafe_allow_html=True)
-                                st.markdown(f"<div class='meta'>{h['publisher']} · {h['published_at'][:16].replace('T',' ')} · <a href='{h['url']}' target='_blank'>Source</a></div>", unsafe_allow_html=True)
-                                if st.button("Use this story →", key=f"pick-{h['url']}-{index}"):
-                                    st.session_state.selected_story = h
-                                    st.session_state.source_text = ""
-                                    st.session_state.title_options = []
-                                    st.session_state.title_choice = None
-                                    st.session_state.approved_title = None
-                                    st.session_state.script_versions = []
-                                    st.session_state.script_approved = None
-                                    st.session_state.title_error = None
-                                    st.session_state.script_error = None
-                                    st.session_state.page = "scriptwriter"
-                                    st.rerun()
-            else:
-                with st.expander(f"{item['topic']} · {len(item['headlines'])} headlines"):
-                    for index, h in enumerate(item["headlines"]):
-                        st.markdown(f'<div class="headline">{h["title"]}</div>', unsafe_allow_html=True)
-                        st.markdown(f"<div class='meta'>{h['publisher']} · {h['published_at'][:16].replace('T',' ')} · <a href='{h['url']}' target='_blank'>Source</a></div>", unsafe_allow_html=True)
-                        if st.button("Use this story →", key=f"pick-{h['url']}-{index}"):
-                            st.session_state.selected_story = h
-                            st.session_state.source_text = ""
-                            st.session_state.title_options = []
-                            st.session_state.title_choice = None
-                            st.session_state.approved_title = None
-                            st.session_state.script_versions = []
-                            st.session_state.script_approved = None
-                            st.session_state.title_error = None
-                            st.session_state.script_error = None
-                            st.session_state.page = "scriptwriter"
-                            st.rerun()
+            grouped = "groups" in item
+            count = len(item["groups"]) if grouped else len(item["headlines"])
+            label = "title pills" if grouped else "headlines"
+            with st.expander(f"{item['topic']} · {count} {label}"):
+                sections = item["groups"] if grouped else [item]
+                for section in sections:
+                    panel = (
+                        st.expander(
+                            f"{section['topic']} · {len(section['headlines'])} headlines"
+                        )
+                        if grouped
+                        else st.container()
+                    )
+                    with panel:
+                        for index, h in enumerate(section["headlines"]):
+                            st.markdown(
+                                f'<div class="headline">{h["title"]}</div>',
+                                unsafe_allow_html=True,
+                            )
+                            st.markdown(
+                                f"<div class='meta'>{h['publisher']} · {h['published_at'][:16].replace('T',' ')} · <a href='{h['url']}' target='_blank'>Source</a></div>",
+                                unsafe_allow_html=True,
+                            )
+                            if st.button(
+                                "Use this story →",
+                                key=f"pick-{h['url']}-{index}",
+                            ):
+                                st.session_state.selected_story = h
+                                st.session_state.source_text = ""
+                                st.session_state.title_options = []
+                                st.session_state.approved_title = None
+                                st.session_state.script_versions = []
+                                st.session_state.script_approved = None
+                                st.session_state.title_error = None
+                                st.session_state.script_error = None
+                                st.session_state.page = "scriptwriter"
+                                st.rerun()
 
 elif st.session_state.page == "scriptwriter":
     if st.button("← Topic Fetcher"):
@@ -197,11 +197,14 @@ elif st.session_state.page == "scriptwriter":
         st.markdown(f'<div class="headline">{story["title"]}</div>', unsafe_allow_html=True)
         st.markdown(f"<div class='meta'>{story['publisher']} · <a href='{story['url']}' target='_blank'>Source</a></div>", unsafe_allow_html=True)
 
-        if not st.session_state.source_text and not st.session_state.title_options and not st.session_state.title_error:
+        if not st.session_state.title_options and not st.session_state.title_error:
             with st.spinner("Reading the source and creating title options…"):
                 try:
-                    st.session_state.source_text = article_text(story)
-                    st.session_state.title_options = generate_titles(story, st.session_state.source_text)
+                    if not st.session_state.source_text:
+                        st.session_state.source_text = article_text(story)
+                    st.session_state.title_options = generate_titles(
+                        story, st.session_state.source_text
+                    )
                 except Exception as exc:
                     st.session_state.title_error = str(exc)
 
@@ -214,14 +217,13 @@ elif st.session_state.page == "scriptwriter":
         elif not st.session_state.approved_title:
             st.subheader("Choose a title")
             st.caption("Title options are generated for this story. Approve one before the script is written.")
-            st.session_state.title_choice = st.selectbox(
+            title_choice = st.selectbox(
                 "Title options",
                 st.session_state.title_options,
                 index=0,
-                key="title_select",
             )
             if st.button("Approve title & generate script", type="primary", use_container_width=True):
-                st.session_state.approved_title = st.session_state.title_choice
+                st.session_state.approved_title = title_choice
                 st.session_state.script_error = None
                 with st.spinner("Writing the Short…"):
                     try:
@@ -233,13 +235,11 @@ elif st.session_state.page == "scriptwriter":
                         errors = validate_script(script, st.session_state.approved_title)
                         if errors:
                             st.session_state.script_error = " · ".join(errors)
-                            st.session_state.approved_title = None
                         else:
                             st.session_state.script_versions = [script]
                             st.session_state.script_approved = None
                     except Exception as exc:
                         st.session_state.script_error = str(exc)
-                        st.session_state.approved_title = None
                 st.rerun()
             st.caption(f"{len(st.session_state.title_options)} title options available.")
 

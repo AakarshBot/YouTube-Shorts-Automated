@@ -18,6 +18,7 @@ if not os.getenv("GROQ_API_KEY"):
                 if separator and name.strip().removeprefix("export ").strip() == "GROQ_API_KEY":
                     os.environ["GROQ_API_KEY"] = value.strip().strip("'").strip('"')
                     break
+
 HEADLINE_SCHEMA = {
     "type": "object",
     "properties": {"titles": {"type": "array", "items": {"type": "string"}}},
@@ -77,62 +78,27 @@ def article_text(story):
         )
         with urlopen(req, timeout=12) as response:
             raw = response.read(300000).decode("utf-8", "ignore")
-        article = re.search(r"<article\b[\s\S]*?</article>", raw, flags=re.I)
+        article = re.search(r"<article[sS]*?</article>", raw, flags=re.I)
         target = article.group(0) if article else raw
         parser = _Text()
-        parser.feed(re.sub(r"<head[\s\S]*?</head>", " ", target, flags=re.I))
-        text = re.sub(r"\s+", " ", html.unescape(" ".join(parser.parts))).strip()
+        parser.feed(re.sub(r"<head[sS]*?</head>", " ", target, flags=re.I))
+        text = re.sub(r"s+", " ", html.unescape(" ".join(parser.parts))).strip()
         if len(text) >= 300:
             return text[:20000]
     except (HTTPError, URLError, TimeoutError, ValueError):
         pass
 
-    summary = re.sub(r"\s+", " ", html.unescape(str(story.get("description") or ""))).strip()
+    summary = re.sub(r"s+", " ", html.unescape(str(story.get("description") or ""))).strip()
     if summary:
         return f'{story["title"]}. {summary}'
     raise RuntimeError("The selected story has no readable source evidence.")
 
 
-def _groq(schema_name, schema, system, user):
-    key = os.getenv("GROQ_API_KEY")
-    if not key:
-        raise RuntimeError("GROQ_API_KEY is not set.")
-    payload = {
-        "model": MODEL,
-        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        "temperature": 0.4,
-        "max_tokens": 1800,
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": {"name": schema_name, "strict": True, "schema": schema},
-        },
-    }
-    req = Request(
-        GROQ_URL,
-        data=json.dumps(payload).encode(),
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
-        method="POST",
-    )
-    try:
-        with urlopen(req, timeout=45) as response:
-            data = json.load(response)
-    except HTTPError as exc:
-        detail = exc.read().decode("utf-8", "ignore")
-        raise RuntimeError(f"Groq request failed: {detail[:500]}") from exc
-    except (URLError, TimeoutError) as exc:
-        raise RuntimeError(f"Groq request failed: {exc}") from exc
-    try:
-        return json.loads(data["choices"][0]["message"]["content"])
-    except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
-        raise RuntimeError("Groq returned an invalid structured response.") from exc
-
-
 def generate_titles(story, source):
-    title = story["title"]
     prompt = f"""Write YouTube Shorts title options for this story.
 
 Selected headline:
-{title}
+{story["title"]}
 
 Source:
 {source[:12000]}
@@ -142,12 +108,39 @@ Use meaningfully different packaging angles, such as direct/result-led, conseque
 Keep every option accurate to the source, concise, natural, Shorts-friendly, with important words early.
 No clickbait, fake curiosity, unsupported claims, excessive capitals or emoji.
 Do not simply rewrite the supplied headline."""
-    titles = _groq(
-        "short_titles",
-        HEADLINE_SCHEMA,
-        "You are a sharp sports/news video editor. Facts in the supplied source are the only authority.",
-        prompt,
-    )["titles"]
+    key = os.getenv("GROQ_API_KEY")
+    if not key:
+        raise RuntimeError("GROQ_API_KEY is not set.")
+    payload = {
+        "model": MODEL,
+        "messages": [
+            {"role": "system", "content": "You are a sharp sports/news video editor. Facts in the supplied source are the only authority."},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.4,
+        "max_tokens": 1800,
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {"name": "short_titles", "strict": True, "schema": HEADLINE_SCHEMA},
+        },
+    }
+    req = Request(
+        GROQ_URL,
+        data=json.dumps(payload).encode(),
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urlopen(req, timeout=45) as response:
+            data = json.load(response)
+        titles = json.loads(data["choices"][0]["message"]["content"])["titles"]
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", "ignore")
+        raise RuntimeError(f"Groq request failed: {detail[:500]}") from exc
+    except (URLError, TimeoutError) as exc:
+        raise RuntimeError(f"Groq request failed: {exc}") from exc
+    except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("Groq returned an invalid structured response.") from exc
     if not titles:
         raise RuntimeError("No title options were returned.")
     return titles
@@ -155,8 +148,7 @@ Do not simply rewrite the supplied headline."""
 
 def generate_script(story, approved_title, source, improve=False):
     angle = (
-        "Create a genuinely different editorial angle and narrative spine from the previous draft. "
-        "Do not merely swap words."
+        "Create a genuinely different editorial angle and narrative spine from the previous draft. Do not merely swap words."
         if improve
         else "Choose the strongest supported editorial angle for the first draft."
     )
@@ -185,12 +177,39 @@ Rules:
 - No filler, repetition, generic AI-news language, forced jokes or clickbait.
 - Keep the voice confident, sharp, human and natural for spoken delivery.
 - Opening headline must be exactly 3 or 4 words, story-specific and contain zero filler."""
-    return _groq(
-        "short_script",
-        SCRIPT_SCHEMA,
-        "You are an experienced editor writing concise, factual YouTube Shorts scripts.",
-        prompt,
+    key = os.getenv("GROQ_API_KEY")
+    if not key:
+        raise RuntimeError("GROQ_API_KEY is not set.")
+    payload = {
+        "model": MODEL,
+        "messages": [
+            {"role": "system", "content": "You are an experienced editor writing concise, factual YouTube Shorts scripts."},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.4,
+        "max_tokens": 1800,
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {"name": "short_script", "strict": True, "schema": SCRIPT_SCHEMA},
+        },
+    }
+    req = Request(
+        GROQ_URL,
+        data=json.dumps(payload).encode(),
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        method="POST",
     )
+    try:
+        with urlopen(req, timeout=45) as response:
+            data = json.load(response)
+        return json.loads(data["choices"][0]["message"]["content"])
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", "ignore")
+        raise RuntimeError(f"Groq request failed: {detail[:500]}") from exc
+    except (URLError, TimeoutError) as exc:
+        raise RuntimeError(f"Groq request failed: {exc}") from exc
+    except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("Groq returned an invalid structured response.") from exc
 
 
 def validate_script(script, approved_title):
@@ -201,9 +220,12 @@ def validate_script(script, approved_title):
     errors = []
     if len(slides) not in (4, 5):
         errors.append("Script must contain 4 or 5 slides.")
-    if len(re.findall(r"\b\w+[’'-]?\w*\b", slides[0]["voiceover"])) >= 14 if slides else True:
+    if not slides or len(re.findall(r"\b\w+[’'-]?\w*\b", slides[0]["voiceover"])) >= 14:
         errors.append("Slide 1 must contain fewer than 14 words.")
-    words = sum(len(re.findall(r"\b\w+[’'-]?\w*\b", s.get("voiceover", ""))) for s in slides)
+    words = sum(
+        len(re.findall(r"\b\w+[’'-]?\w*\b", s.get("voiceover", "")))
+        for s in slides
+    )
     if words > 75:
         errors.append("Total narration is too long for the 30-second target.")
     if any(not s.get("voiceover", "").strip() for s in slides):
