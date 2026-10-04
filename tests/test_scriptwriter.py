@@ -113,9 +113,9 @@ def test_gnews_summary_is_used_when_source_returns_400(monkeypatch):
     text = scriptwriter.article_text({
         "title": "Story headline",
         "url": "https://example.com/story",
-        "description": "This is the factual GNews summary for the selected story.",
+        "description": "GNews summary.",
     })
-    assert text == "Story headline. This is the factual GNews summary for the selected story."
+    assert text == "Story headline. GNews summary."
 
 
 def test_source_without_article_element_can_still_be_used(monkeypatch):
@@ -143,9 +143,9 @@ def test_source_without_readable_content_uses_gnews_summary(monkeypatch):
     text = scriptwriter.article_text({
         "title": "Story headline",
         "url": "https://example.com/story",
-        "description": "A useful factual summary with enough information for the writer.",
+        "description": "Useful factual summary.",
     })
-    assert text == "Story headline. A useful factual summary with enough information for the writer."
+    assert text == "Story headline. Useful factual summary."
 
 
 def test_source_requires_evidence(monkeypatch):
@@ -166,3 +166,18 @@ def test_source_requires_evidence(monkeypatch):
         assert str(exc) == "The selected story has no readable source evidence."
     else:
         raise AssertionError("Expected missing-evidence error")
+
+
+def test_invalid_source_url_uses_gnews_summary(monkeypatch):
+    import scriptwriter
+
+    def fake_urlopen(req, timeout=12):
+        raise AssertionError("Publisher URL should not be opened for an invalid URL")
+
+    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
+    text = scriptwriter.article_text({
+        "title": "Story headline",
+        "url": "not-a-url",
+        "description": "GNews summary.",
+    })
+    assert text == "Story headline. GNews summary."
