@@ -295,6 +295,7 @@ elif st.session_state.page == "scriptwriter":
             st.caption(f"Sources used: {len(st.session_state.source_evidence)}")
             for index, version in enumerate(st.session_state.script_versions):
                 st.subheader(f"Version {index + 1}")
+                st.markdown("**Opening headline (3–4 words)**")
                 st.markdown(f'<div class="script-card"><div class="screen-headline">{version["opening_headline"]}</div></div>', unsafe_allow_html=True)
                 for number, slide in enumerate(version["slides"], 1):
                     st.markdown(f'<div class="script-card"><h4>Slide {number}</h4><div>{slide["voiceover"]}</div></div>', unsafe_allow_html=True)
