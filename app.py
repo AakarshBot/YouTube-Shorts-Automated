@@ -1,9 +1,5 @@
 import streamlit as st
 
-from audio import generate_audio
-from scriptwriter import article_text, find_related_sources, generate_script, manual_sources, validate_script
-from topic_fetcher import DESKS, GENRES, fetch_topics
-
 st.set_page_config(page_title="YouTube Shorts Automated", page_icon="▶", layout="wide")
 
 st.markdown("""
@@ -79,6 +75,8 @@ elif st.session_state.page == "formats":
     st.caption("More formats — Top-5, Did You Know and others — will be added later.")
 
 elif st.session_state.page == "deep-dive":
+    from topic_fetcher import DESKS
+
     if st.button("← Formats"):
         st.session_state.page = "formats"
         st.rerun()
@@ -95,6 +93,8 @@ elif st.session_state.page == "deep-dive":
             st.rerun()
 
 elif st.session_state.page == "sports":
+    from topic_fetcher import DESKS
+
     if st.button("← Deep-Dive"):
         st.session_state.page = "deep-dive"
         st.rerun()
@@ -108,6 +108,8 @@ elif st.session_state.page == "sports":
             st.rerun()
 
 elif st.session_state.page == "topics":
+    from topic_fetcher import GENRES, fetch_topics
+
     if st.session_state.genre in GENRES:
         if st.button("← Sports"):
             st.session_state.page = "sports"
@@ -185,6 +187,8 @@ elif st.session_state.page == "topics":
                                 st.rerun()
 
 elif st.session_state.page == "scriptwriter":
+    from scriptwriter import article_text, find_related_sources, generate_script, manual_sources, validate_script
+
     if st.button("← Topic Fetcher"):
         st.session_state.page = "topics"
         st.rerun()
@@ -445,6 +449,8 @@ elif st.session_state.page == "audio":
         if st.session_state.audio_result is None and st.session_state.audio_error is None:
             st.info("Audio is ready to generate locally from the approved Scriptwriter version.")
             if st.button("Generate Audio", type="primary", use_container_width=True):
+                from audio import generate_audio
+
                 with st.spinner("Generating narration locally…"):
                     try:
                         st.session_state.audio_result = generate_audio(version, st.session_state.audio_run)
