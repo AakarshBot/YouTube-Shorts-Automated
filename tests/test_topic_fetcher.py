@@ -1,4 +1,4 @@
-from topic_fetcher import DESK_PILLS, DESKS, GENRES
+from topic_fetcher import BAD, DESK_PILLS, DESKS, GENRES
 
 SPORTS = "Sports"
 NON_SPORTS = (
@@ -29,15 +29,13 @@ def test_sports_and_niche_structure():
     assert len(GENRES[niche]) >= 15
 
 def test_cricket_queries_target_specific_story_signals():
-    regional = GENRES["Cricket — India / Pakistan / Sri Lanka / Asia"]
-    query = regional["India"][0][1].lower()
+    query = GENRES["Cricket — India / Pakistan / Sri Lanka / Asia"]["India"][0][1].lower()
     assert '"india cricket"' in query
     assert "bcci" in query
     assert '"records & stats"' in query
     assert "-scorecard" in query
 
 def test_cricket_page_filter_rejects_reference_pages():
-    from topic_fetcher import BAD
     assert BAD.search("NKP Salve Challenger Trophy, 2008/09 Cricket Team Records & Stats")
     assert BAD.search("Cricket Grounds | Afro Asia Cup, 2005")
     assert not BAD.search("West Indies beat India in record chase as Hope hits 162")

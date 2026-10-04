@@ -62,9 +62,9 @@ Country pills:
 
 Regional Cricket uses one targeted Google News search per country in the first pass. India/Pakistan/Sri Lanka can fall back to a 72-hour search only when their headline targets are not met.
 
-The cricket searches are intentionally specific rather than simply searching for the country plus the word cricket. They target team/board/player/format signals and exclude obvious database/utility phrases inside the Google News query.
+Cricket searches target specific team, board, player or format signals instead of a generic country-plus-cricket query. Google News exclusions remove obvious records, database and utility material before it reaches Python.
 
-This is a retrieval-quality rule, not an article-understanding classifier.
+Python keeps only a small deterministic blacklist for obvious utility/reference pages. It does not try to semantically judge every article.
 
 #### Global Cricket
 
@@ -80,21 +80,17 @@ Football, Tennis, Basketball, Athletics, Motorsport, Badminton, Hockey, Golf, Bo
 
 Cricket is excluded. Only fresh qualifying stories create sport pills.
 
-### Story-quality filtering
+### Story-quality rules
 
-Keep the Python quality filter deliberately small.
+Reject obvious utility/reference pages such as schedules, fixtures, standings, scorecards, watch guides, predicted lineups, galleries, quizzes, odds, recaps, round-ups and similar pages.
 
-Reject obvious utility/reference material such as schedules, fixtures, standings, scorecards, watch guides, predicted lineups, galleries, quizzes, odds, recaps, round-ups and similar pages.
+For cricket, also reject explicit database pages such as “records & stats”, “team records”, “career stats” and “cricket grounds”.
 
-For cricket, also reject clear database-style pages such as “records & stats”, “team records”, “career stats” and “cricket grounds”.
+Do not add an LLM classifier, article scraper, publisher allowlist, alternate news API, cache layer or additional runtime dependency.
 
-Do not build a semantic classifier, article scraper, publisher allowlist, LLM review step or additional news API.
+A keyword mention alone is not the retrieval strategy. Queries should be specific enough to favour actual current cricket stories while preserving legitimate broader stories connected to a cricket development.
 
-A cricket keyword alone is not considered sufficient by the retrieval design: the Google News query should provide stronger cricket-story signals before Python sees the result.
-
-A broader story that legitimately reports a cricket development may still be included when Google News associates it with the targeted cricket search; final selection remains manual.
-
-### Common freshness and dedupe
+### Freshness and dedupe
 
 - Freshness target: newest 24 hours.
 - Regional Cricket: 72-hour fallback only when India/Pakistan/Sri Lanka misses its target.
@@ -108,8 +104,6 @@ A broader story that legitimately reports a cricket development may still be inc
 - No cache, alternate news provider or runtime dependency is introduced.
 
 ## Non-Sports Deep-Dive desks
-
-Approved desks and current initial pills:
 
 ### News
 India; World; Politics & Policy; Major Events.
@@ -161,11 +155,11 @@ tests/test_topic_fetcher.py checks:
 - runs unit tests
 - performs a real Regional Cricket fetch and requires India/Pakistan/Sri Lanka
 - requires at least 5 Pakistan headlines and 5 Sri Lanka headlines
-- prints the returned India cricket headlines for manual quality inspection in the CI log
+- prints returned India cricket headlines for manual inspection in the CI log
 - performs real Niche Sports, News and Technology fetches
 - verifies returned pills belong to configured structures
 
-CI validates technical behaviour and provides a real editorial-quality smoke sample; it does not replace manual QC.
+CI is technical validation plus a real retrieval smoke sample. It is not editorial approval.
 
 ## Current files
 
