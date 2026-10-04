@@ -96,7 +96,7 @@ def fetch_topics(genre, limit=20):
     with ThreadPoolExecutor(max_workers=len(GENRES[genre])) as pool:
         raw = [item for batch in pool.map(_google, GENRES[genre]) for item in batch]
 
-    cutoff = datetime.now(timezone.utc) - timedelta(days=3)
+    now = datetime.now(timezone.utc)
     rows, seen = [], set()
 
     for item in raw:
@@ -108,8 +108,6 @@ def fetch_topics(genre, limit=20):
             published = published.astimezone(timezone.utc)
         except (TypeError, ValueError):
             published = datetime.now(timezone.utc)
-        if published < cutoff:
-            continue
         rows.append({
             "title": title,
             "url": url,
@@ -117,6 +115,10 @@ def fetch_topics(genre, limit=20):
             "published_at": published,
         })
         seen.add(url)
+
+    recent = [r for r in rows if r["published_at"] >= now - timedelta(hours=24)]
+    if len({_entity(r["title"]) for r in recent}) >= limit:
+        rows = recent
 
     if len({_entity(r["title"]) for r in rows}) < limit:
         query = {
@@ -135,9 +137,9 @@ def fetch_topics(genre, limit=20):
     ranked = sorted(
         groups.items(),
         key=lambda item: (
-            len(item[1]),
+            max(r["published_at"] for r in item[1]),
             len({r["publisher"] for r in item[1] if r["publisher"]}),
-            -max((datetime.now(timezone.utc) - r["published_at"]).total_seconds() for r in item[1]),
+            len(item[1]),
         ),
         reverse=True,
     )
