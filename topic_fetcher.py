@@ -138,7 +138,7 @@ BAD = re.compile(
     r"\b(schedule|fixtures?|standings?|scorecard|live score|how to watch|where to watch|"
     r"predicted xi|predicted lineups?|photo gallery|photos?|quiz|odds|recap|round[- ]up|"
     r"tournament review|what we learned|live updates?|live blog|horoscope)\b|"
-    r'"records? & stats"|"team records"|"career stats"|\bcricket grounds\b',
+    r"\brecords? & stats\b|\bteam records\b|\bcareer stats\b|\bcricket grounds\b",
     re.I,
 )
 
