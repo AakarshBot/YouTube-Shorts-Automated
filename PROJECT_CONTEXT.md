@@ -83,7 +83,7 @@ Current requirements:
 - A person/entity pill may contain different current stories about that person/entity because final selection is manual.
 - Remove obvious utility content such as schedules, fixtures, standings, scorecards, watch guides, predicted lineups, galleries, quizzes and similar non-story pages.
 - Avoid stale tournament recap/review material when the competition finished earlier and there is no genuinely new development.
-- Use a dynamic freshness window rather than one rigid publication-age cutoff, while strongly favouring recent stories.
+- Use a dynamic freshness window: prefer the most recent 24 hours when that can produce 20 distinct topic groups; otherwise allow the 72-hour discovery pool before using GDELT fallback.
 - Use English only for the first implementation. Language support will be added later.
 - The user manually chooses the final story; Topic Fetcher does not make the final editorial decision.
 
@@ -105,9 +105,9 @@ Current discovery:
 
 The ranking intentionally stays small and editable. It favours:
 
-- number of relevant headlines in the group
+- freshness of the newest headline first
 - number of distinct publishers
-- freshness of the newest headline
+- number of relevant headlines in the group
 
 No separate AI classification stage is currently used.
 
