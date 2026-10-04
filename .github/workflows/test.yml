@@ -18,8 +18,18 @@ jobs:
       - run: |
           python - <<'PY'
           from topic_fetcher import GENRES, fetch_topics
-          for genre in GENRES:
-              topics = fetch_topics(genre)
-              print(f"{genre}: {len(topics)}")
-              assert len(topics) == 20
+
+          regional = fetch_topics("Cricket — India / Pakistan / Sri Lanka / Asia")
+          regional = {item["topic"]: item for item in regional}
+          assert {"India", "Pakistan", "Sri Lanka"} <= set(regional)
+          assert len(regional["Pakistan"]["headlines"]) >= 5
+          assert len(regional["Sri Lanka"]["headlines"]) >= 5
+
+          global_ = fetch_topics("Cricket — Global")
+          assert all(item["topic"] in GENRES["Cricket — Global"] for item in global_)
+
+          niche = fetch_topics("Niche Sports — Global")
+          assert len(niche) >= 5
+          assert all(item["topic"] in GENRES["Niche Sports — Global"] for item in niche)
+          assert all(item["topic"] != "Cricket" for item in niche)
           PY

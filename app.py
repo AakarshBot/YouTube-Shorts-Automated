@@ -13,6 +13,7 @@ h1{font-size:2.5rem;letter-spacing:-.04em}
 .stage{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0}
 .stage span{border:1px solid var(--line);padding:8px 12px;border-radius:999px;background:var(--card);font-size:.82rem}
 .stage .active{background:var(--ink);color:white;border-color:var(--ink)}
+.headline{border:1px solid var(--line);padding:10px 12px;border-radius:12px;background:var(--card);margin:6px 0}
 .meta{color:var(--muted);font-size:.78rem;margin-top:5px}
 div.stButton>button{background:#fffdf8;color:#171915;border:1px solid #cfcabe;border-radius:999px;box-shadow:none}
 div.stButton>button:hover{background:#f0ede5;color:#171915;border-color:#aaa599}
@@ -25,14 +26,12 @@ div.stButton>button:disabled{background:#efede8;color:#8a877f;border-color:#ddd9
 st.session_state.setdefault("page", "home")
 st.session_state.setdefault("genre", None)
 st.session_state.setdefault("topics", [])
-st.session_state.setdefault("seen_topics", set())
 st.session_state.setdefault("seen_urls", set())
 
 def go(page, genre=None):
     st.session_state.page, st.session_state.genre = page, genre
     if page != "topics":
         st.session_state.topics = []
-        st.session_state.seen_topics = set()
         st.session_state.seen_urls = set()
     st.rerun()
 
@@ -71,10 +70,9 @@ else:
 
     topics = st.session_state.topics
     if not topics:
-        if st.button("Fetch 20 stories", type="primary"):
+        if st.button("Fetch stories", type="primary"):
             with st.spinner("Finding current stories…"):
                 st.session_state.topics = fetch_topics(st.session_state.genre)
-            st.session_state.seen_topics = {item["topic"].casefold() for item in st.session_state.topics}
             st.session_state.seen_urls = {
                 headline["url"]
                 for item in st.session_state.topics
@@ -85,28 +83,25 @@ else:
     if topics:
         if st.button("Search 20 more", type="primary", use_container_width=True):
             with st.spinner("Searching for more stories…"):
-                more = fetch_topics(
-                    st.session_state.genre,
-                    exclude_topics=st.session_state.seen_topics,
-                    exclude_urls=st.session_state.seen_urls,
-                )
-            if more:
-                st.session_state.topics = more
-                st.session_state.seen_topics.update(item["topic"].casefold() for item in more)
-                st.session_state.seen_urls.update(
-                    headline["url"]
-                    for item in more
-                    for headline in item["headlines"]
-                )
-            else:
-                st.warning("No additional topic groups were found in the current search window.")
+                more = fetch_topics(st.session_state.genre, exclude_urls=st.session_state.seen_urls)
+            by_topic = {item["topic"]: item for item in topics}
+            for item in more:
+                if item["topic"] in by_topic:
+                    by_topic[item["topic"]]["headlines"].extend(item["headlines"])
+                else:
+                    topics.append(item)
+            st.session_state.topics = topics
+            st.session_state.seen_urls.update(
+                headline["url"]
+                for item in more
+                for headline in item["headlines"]
+            )
 
-        topics = st.session_state.topics
-        st.caption(f"{len(topics)} topic pills")
+        st.caption(f"{len(topics)} {('country' if 'Cricket' in st.session_state.genre else 'sport')} pills")
         for item in topics:
             with st.expander(f"{item['topic']} · {len(item['headlines'])} headlines"):
                 for h in item["headlines"]:
-                    st.markdown(f"**{h['title']}**")
+                    st.markdown(f'<div class="headline">{h["title"]}</div>', unsafe_allow_html=True)
                     st.markdown(f"<div class='meta'>{h['publisher']} · {h['published_at'][:16].replace('T',' ')} · <a href='{h['url']}' target='_blank'>Source</a></div>", unsafe_allow_html=True)
     else:
-        st.info("Run Topic Fetcher to load the current 20-topic pool.")
+        st.info("Run Topic Fetcher to load current stories.")
