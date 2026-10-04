@@ -133,7 +133,6 @@ elif st.session_state.page == "topics":
             with st.spinner("Finding current stories…"):
                 st.session_state.topics = fetch_topics(st.session_state.genre)
             st.session_state.seen_urls = {h["url"] for item in st.session_state.topics for h in item["headlines"]}
-            st.rerun()
 
     topics = st.session_state.topics
     if not topics:
@@ -159,7 +158,6 @@ elif st.session_state.page == "topics":
                     topics.append(item)
             st.session_state.topics = topics
             st.session_state.seen_urls.update(h["url"] for item in more for h in item["headlines"])
-            st.rerun()
 
         st.caption(f"{len(topics)} {pill} pills")
         for item in topics:
@@ -312,8 +310,7 @@ elif st.session_state.page == "scriptwriter":
                     else:
                         st.session_state.writer_status = "needs_more_sources"
                         st.session_state.writer_reason = "The additional URLs could not provide readable source information."
-                st.rerun()
-
+                
             if st.session_state.manual_sources_attempted and not st.session_state.script_versions:
                 st.error(st.session_state.writer_reason or "Not enough information to create a Short.")
 
@@ -475,7 +472,6 @@ elif st.session_state.page == "scriptwriter":
                                 st.session_state.script_versions.append(result)
                         except Exception as exc:
                             st.session_state.script_error = str(exc)
-                    st.rerun()
 
 elif st.session_state.page == "audio":
     if st.button("← Scriptwriter"):
@@ -503,7 +499,6 @@ elif st.session_state.page == "audio":
                         st.session_state.audio_result = generate_audio(version, st.session_state.audio_run)
                     except Exception as exc:
                         st.session_state.audio_error = str(exc)
-                st.rerun()
 
         if st.session_state.audio_error:
             st.error(st.session_state.audio_error)
@@ -529,7 +524,6 @@ elif st.session_state.page == "audio":
                 with approve:
                     if st.button("Approve Audio", type="primary", use_container_width=True):
                         st.session_state.audio_approved = True
-                        st.rerun()
                 with redo:
                     if st.button("Redo Audio", use_container_width=True):
                         st.session_state.audio_result = None
