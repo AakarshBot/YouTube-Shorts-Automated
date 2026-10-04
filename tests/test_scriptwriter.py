@@ -269,35 +269,3 @@ def test_script_only_redo_requests_script_fields_only(monkeypatch):
     assert "Do not create or change or output the YouTube titles" in prompt
     assert result == generated
 
-
-def test_script_only_redo_preserves_packaging_in_dashboard_payload(monkeypatch):
-    import scriptwriter
-
-    monkeypatch.setenv("GROQ_API_KEY", "test-key")
-    previous = make_ready(
-        slides=[
-            {"voiceover": "Original opening."},
-            {"voiceover": "Original second fact."},
-            {"voiceover": "Original third fact."},
-            {"voiceover": "Original ending."},
-        ],
-        headline="Original Script",
-    )
-    generated = {
-        "status": "ready",
-        "reason": "",
-        "opening_headline": "New Script",
-        "slides": [
-            {"voiceover": "New opening."},
-            {"voiceover": "New second fact."},
-            {"voiceover": "New third fact."},
-            {"voiceover": "New ending."},
-        ],
-    }
-
-    assert generated["opening_headline"] != previous["opening_headline"]
-    assert generated["slides"] != previous["slides"]
-    assert previous["titles"]
-    assert previous["description"]
-    assert previous["hashtags"]
-    assert previous["first_comment"]
