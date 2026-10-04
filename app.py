@@ -493,6 +493,10 @@ elif st.session_state.page == "scriptwriter":
                         except Exception as exc:
                             st.session_state.script_error = str(exc)
 
+                    if st.session_state.writer_status == "needs_more_sources":
+                        st.warning("The existing evidence is still not enough for a stronger script.")
+                        st.write(st.session_state.writer_reason or "Add another source URL and redo the script.")
+
 elif st.session_state.page == "audio":
     if st.button("← Scriptwriter"):
         st.session_state.page = "scriptwriter"
