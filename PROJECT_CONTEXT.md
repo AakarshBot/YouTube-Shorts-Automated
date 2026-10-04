@@ -73,39 +73,45 @@ When a sports genre is opened, the full factory stage list is shown. Only the fu
 
 **Status: Test implementation in progress. Not user-approved yet.**
 
-Current goal:
+Current requirements:
 
 - Return **20 unique topic pills** for each of the three sports genres.
 - Fetch substantially more than 20 headlines so filtering and grouping do not shrink the final pool.
-- Prefer fresh stories with strong current-news/coverage signals.
-- Do not fill the pool with weak or clearly stale material.
-- Group multiple headlines around the same entity/topic into one pill.
-- A person/entity pill may contain different current stories about that person/entity. Manual QC makes this acceptable.
-- Different real-world events involving the same person/team may therefore remain inside the same entity pill.
+- Prefer new stories with strong current coverage and viral potential.
+- Use freshness and publisher/story coverage as simple proxies; do not add a complicated trend system.
+- Group headlines under an entity/topic pill where practical.
+- A person/entity pill may contain different current stories about that person/entity because final selection is manual.
 - Remove obvious utility content such as schedules, fixtures, standings, scorecards, watch guides, predicted lineups, galleries, quizzes and similar non-story pages.
-- Avoid stale tournament recap/review material when the underlying competition ended earlier and there is no new development.
+- Avoid stale tournament recap/review material when the competition finished earlier and there is no genuinely new development.
+- Use a dynamic freshness window rather than one rigid publication-age cutoff, while strongly favouring recent stories.
 - Use English only for the first implementation. Language support will be added later.
-- The user manually chooses the final story; Topic Fetcher does not need to make the final editorial decision.
+- The user manually chooses the final story; Topic Fetcher does not make the final editorial decision.
 
 ### Topic Fetcher implementation
 
 The implementation is written from scratch in `topic_fetcher.py`.
 
-Current external dependencies:
+External packages:
 
 - **GNews** for Google News discovery and structured article results.
 - **gdeltdoc** for GDELT article discovery when the Google News pool is insufficient.
 - **rapidfuzz** for lightweight headline similarity.
 
-The code intentionally keeps source access inside these established packages instead of implementing custom RSS/API clients.
+The source-access work is intentionally delegated to established packages rather than custom RSS/API clients.
 
-Current discovery approach:
+Current discovery:
 
-**Multiple broad genre queries → large candidate pool → basic cleanup → entity/topic grouping → simple freshness/source/coverage ranking → 20 pills**
+**Multiple genre queries → large candidate pool → cleanup → entity/topic grouping → simple ranking → 20 pills**
 
-The first version deliberately avoids a separate complex trend engine, expensive AI classification stage, or elaborate ranking framework.
+The ranking intentionally stays small and editable. It favours:
 
-The output of Topic Fetcher contains:
+- number of relevant headlines in the group
+- number of distinct publishers
+- freshness of the newest headline
+
+No separate AI classification stage is currently used.
+
+Output contains:
 
 - topic/entity heading
 - one or more headlines
@@ -113,9 +119,9 @@ The output of Topic Fetcher contains:
 - publication time
 - source URL
 
-The source URL returned by Google News may be a Google News redirect URL when using the default RSS backend. Direct URL resolution can be addressed later if testing shows it is required for the downstream Scriptwriter.
+Google News may return Google News redirect URLs when using its default RSS backend. Direct URL resolution can be added later only if downstream use shows it is necessary.
 
-### Dashboard — Test shell
+## Dashboard — Test shell
 
 `app.py` contains the new Test navigation only:
 
@@ -138,51 +144,51 @@ Only Topic Fetcher is active.
 
 Live is intentionally disabled and has not been connected to the new function.
 
-### Dashboard UI principles
+## Dashboard UI principles
 
-The dashboard is being rebuilt from scratch.
+The dashboard is rebuilt from scratch and must not copy Final-Shorts UI.
 
-Do not copy Final-Shorts UI.
-
-UI should be:
+UI target:
 
 - professional
 - light/warm
 - readable
 - compact
+- minimal decoration
+- straightforward Streamlit components
+- minimal CSS
 - easy to edit
-- low in unnecessary visual decoration
-- built with straightforward Streamlit components and minimal CSS
 
 ## Step 01 handoff
 
-The intended handoff after the user selects a topic is a clean story package for Step 02.
+The eventual Topic Fetcher handoff to Step 02 must retain at least:
 
-At minimum it must retain the selected headline, source URL, publisher and publication time, plus the topic/entity grouping context when available.
+- selected topic/entity
+- selected headline
+- source URL
+- publisher
+- publication time
+- grouped headline context when available
 
 Do not integrate Step 02 until Topic Fetcher has been tested and approved.
 
-## Testing rule
+## Testing
 
-Functional changes should have focused tests.
+Focused tests currently cover:
 
-Before calling Step 01 complete, verify:
+- all three sports genres exist
+- entity extraction recognises a named subject such as Virat Kohli
+- loose headline similarity can recognise closely related headlines as the same story
 
-- the three sports genres load
-- Topic Fetcher imports correctly
-- filtering/grouping logic works
-- the UI can request and display the returned topic pills
-- real fetching is able to produce the intended 20-topic pool
+Before Topic Fetcher can be marked Approved, verify the actual UI and real fetching for all three genres and confirm that each can produce 20 useful, distinct pills.
 
-Do not mark Topic Fetcher Approved merely because the code runs. Approval depends on the quality of the actual returned stories.
+Code passing tests is not sufficient for approval; actual story quality is the approval criterion.
 
-## Current repository state
+## Repository state
 
 This is a clean rebuild.
 
-Do not import anything from Final-Shorts.
-
-Current files:
+Files currently present:
 
 - `PROJECT_CONTEXT.md`
 - `requirements.txt`
@@ -190,4 +196,4 @@ Current files:
 - `app.py`
 - `tests/test_topic_fetcher.py`
 
-No Live implementation has been built yet.
+No Live implementation has been built.
