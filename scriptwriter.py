@@ -61,8 +61,10 @@ def article_text(url):
             raw = response.read(300000).decode("utf-8", "ignore")
     except (HTTPError, URLError, TimeoutError) as exc:
         raise RuntimeError(f"Could not read the source article: {exc}") from exc
+    article = re.search(r"<article\b[\s\S]*?</article>", raw, flags=re.I)
+    target = article.group(0) if article else raw
     parser = _Text()
-    parser.feed(re.sub(r"<head[\s\S]*?</head>", " ", raw, flags=re.I))
+    parser.feed(re.sub(r"<head[\s\S]*?</head>", " ", target, flags=re.I))
     text = re.sub(r"\s+", " ", html.unescape(" ".join(parser.parts))).strip()
     if len(text) < 300:
         raise RuntimeError("The source page did not contain enough readable article text.")
