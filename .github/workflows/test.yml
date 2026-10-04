@@ -15,4 +15,11 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt
       - run: python -m pytest -q
-      - run: python -c "from topic_fetcher import GENRES, fetch_topics; [(print(g, len(fetch_topics(g))) or (_ == 20)) for _ in [len(fetch_topics(g))] for g in GENRES]"
+      - run: |
+          python - <<'PY'
+          from topic_fetcher import GENRES, fetch_topics
+          for genre in GENRES:
+              topics = fetch_topics(genre)
+              print(f"{genre}: {len(topics)}")
+              assert len(topics) == 20
+          PY
