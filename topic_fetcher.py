@@ -93,7 +93,7 @@ def fetch_topics(genre, limit=20, exclude_topics=(), exclude_urls=()):
         if not title or not url or url in seen or url in blocked_urls or BAD.search(title):
             continue
         topic = _entity(title)
-        if topic.casefold() in blocked_topics:
+        if any(key in topic.casefold() or topic.casefold() in key for key in blocked_topics):
             continue
         try:
             published = parsedate_to_datetime(item.get("published date", "")).astimezone(timezone.utc)

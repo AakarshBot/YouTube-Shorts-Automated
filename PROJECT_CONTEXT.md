@@ -37,7 +37,7 @@ Implementation:
 - `topic_fetcher.py` calls `GNews.get_news()` directly and concurrently.
 - Local processing is limited to cleanup, URL dedupe, freshness selection, entity grouping and simple ranking.
 - No AI classification, GDELT, custom RSS client or retrieval wrapper.
-- `fetch_topics()` accepts `exclude_topics` and `exclude_urls` so the Test UI can request another batch without repeating the visible/previous topic groups.
+- `fetch_topics()` accepts `exclude_topics` and `exclude_urls` so the Test UI can request another batch without repeating visible/previous groups, including overlapping entity-name variants.
 
 ## Test dashboard
 
