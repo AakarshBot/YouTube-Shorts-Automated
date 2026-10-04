@@ -60,7 +60,7 @@ Country pills:
 - Bangladesh: include when fresh qualifying stories exist
 - Afghanistan: include when fresh qualifying stories exist
 
-Regional Cricket uses one targeted Google News search per country in the first pass. India/Pakistan/Sri Lanka can fall back to a 72-hour search only when their headline targets are not met.
+Regional Cricket uses one targeted Google News search per country in the first pass. India uses title/entity grouping to measure its 25-pill target; Pakistan/Sri Lanka use their existing headline targets. India/Pakistan/Sri Lanka can fall back to a 72-hour search only when their targets are not met.
 
 Cricket searches target specific team, board, player or format signals instead of a generic country-plus-cricket query. Google News exclusions remove obvious records, database and utility material before it reaches Python.
 
@@ -154,7 +154,7 @@ tests/test_topic_fetcher.py checks:
 - installs runtime dependencies plus pytest
 - runs unit tests
 - performs a real Regional Cricket fetch and requires India/Pakistan/Sri Lanka
-- requires at least 25 India headlines, 5 Pakistan headlines and 5 Sri Lanka headlines
+- requires at least 25 India title/entity pills, 5 Pakistan headlines and 5 Sri Lanka headlines
 - prints returned India cricket headlines for manual inspection in the CI log
 - performs real Niche Sports, News and Technology fetches
 - verifies returned pills belong to configured structures

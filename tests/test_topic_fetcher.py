@@ -1,4 +1,4 @@
-from topic_fetcher import BAD, DESK_PILLS, DESKS, GENRES
+from topic_fetcher import BAD, DESK_PILLS, DESKS, GENRES, _group_india_rows
 
 SPORTS = "Sports"
 NON_SPORTS = (
@@ -39,3 +39,18 @@ def test_cricket_page_filter_rejects_reference_pages():
     assert BAD.search("NKP Salve Challenger Trophy, 2008/09 Cricket Team Records & Stats")
     assert BAD.search("Cricket Grounds | Afro Asia Cup, 2005")
     assert not BAD.search("West Indies beat India in record chase as Hope hits 162")
+
+def test_india_headlines_group_by_shared_title_entity():
+    rows = [
+        {"title": "Virat Kohli leads India after match win", "published_at": "2026-10-04T10:00:00+00:00"},
+        {"title": "Kohli backed to shine again for India", "published_at": "2026-10-04T09:00:00+00:00"},
+        {"title": "India await Asia Cup title challenge", "published_at": "2026-10-04T08:00:00+00:00"},
+        {"title": "Asia Cup contenders prepare for battle", "published_at": "2026-10-04T07:00:00+00:00"},
+        {"title": "Jasprit Bumrah returns to training", "published_at": "2026-10-04T06:00:00+00:00"},
+    ]
+    groups = _group_india_rows(rows)
+    kohli = next(group for group in groups if "kohli" in group["topic"].lower())
+    asia = next(group for group in groups if "asia cup" in group["topic"].lower())
+    assert len(kohli["headlines"]) == 2
+    assert len(asia["headlines"]) == 2
+    assert len(groups) == 3

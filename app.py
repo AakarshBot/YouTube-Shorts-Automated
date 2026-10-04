@@ -101,7 +101,15 @@ else:
             by_topic = {item["topic"]: item for item in topics}
             for item in more:
                 if item["topic"] in by_topic:
-                    by_topic[item["topic"]]["headlines"].extend(item["headlines"])
+                    target = by_topic[item["topic"]]
+                    target["headlines"].extend(item["headlines"])
+                    if "groups" in item:
+                        groups = {group["topic"]: group for group in target.get("groups", [])}
+                        for group in item["groups"]:
+                            if group["topic"] in groups:
+                                groups[group["topic"]]["headlines"].extend(group["headlines"])
+                            else:
+                                target.setdefault("groups", []).append(group)
                 else:
                     topics.append(item)
             st.session_state.topics = topics
@@ -111,9 +119,17 @@ else:
 
         st.caption(f"{len(topics)} {pill} pills")
         for item in topics:
-            with st.expander(f"{item['topic']} · {len(item['headlines'])} headlines"):
-                for h in item["headlines"]:
-                    st.markdown(f'<div class="headline">{h["title"]}</div>', unsafe_allow_html=True)
-                    st.markdown(f"<div class='meta'>{h['publisher']} · {h['published_at'][:16].replace('T',' ')} · <a href='{h['url']}' target='_blank'>Source</a></div>", unsafe_allow_html=True)
+            if st.session_state.genre == "Cricket — India / Pakistan / Sri Lanka / Asia" and item["topic"] == "India" and "groups" in item:
+                with st.expander(f"India · {len(item['groups'])} title pills"):
+                    for group in item["groups"]:
+                        with st.expander(f"{group['topic']} · {len(group['headlines'])} headlines"):
+                            for h in group["headlines"]:
+                                st.markdown(f'<div class="headline">{h["title"]}</div>', unsafe_allow_html=True)
+                                st.markdown(f"<div class='meta'>{h['publisher']} · {h['published_at'][:16].replace('T',' ')} · <a href='{h['url']}' target='_blank'>Source</a></div>", unsafe_allow_html=True)
+            else:
+                with st.expander(f"{item['topic']} · {len(item['headlines'])} headlines"):
+                    for h in item["headlines"]:
+                        st.markdown(f'<div class="headline">{h["title"]}</div>', unsafe_allow_html=True)
+                        st.markdown(f"<div class='meta'>{h['publisher']} · {h['published_at'][:16].replace('T',' ')} · <a href='{h['url']}' target='_blank'>Source</a></div>", unsafe_allow_html=True)
     else:
         st.info("No fresh qualifying stories found.")

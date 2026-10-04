@@ -154,6 +154,50 @@ def _clean(value):
 def _url(value):
     return _clean(value).split("?")[0].rstrip("/").lower()
 
+def _group_india_rows(rows, limit=25):
+    single_stop = {
+        "after", "all", "amid", "and", "are", "before", "beat", "beats", "beating",
+        "cricket", "cup", "day", "for", "from", "game", "games", "has", "have", "india",
+        "in", "into", "is", "latest", "league", "live", "match", "matches", "new", "news",
+        "odi", "one", "on", "or", "over", "player", "players", "report", "reports", "said",
+        "say", "says", "score", "scores", "series", "set", "star", "stars", "team", "teams",
+        "test", "the", "this", "t20", "to", "today", "tomorrow", "tournament", "trophy",
+        "two", "update", "updates", "vs", "with", "win", "wins", "won", "world", "yesterday"
+    }
+    bad_phrases = {"india cricket", "cricket match", "india team", "india player", "cricket news"}
+    token_re = re.compile(r"[A-Za-z0-9]+(?:['’][A-Za-z]+)?")
+    counts, display, per_row = {}, {}, []
+
+    for row in rows:
+        title = re.sub(r"['’]s\b", "", row["title"], flags=re.I)
+        original = token_re.findall(title)
+        tokens = [token.lower() for token in original]
+        seen = set()
+        for size in (3, 2, 1):
+            for i in range(len(tokens) - size + 1):
+                key = " ".join(tokens[i:i + size])
+                if any(len(word) < 3 for word in key.split()):
+                    continue
+                if size == 1 and key in single_stop:
+                    continue
+                if size > 1 and key in bad_phrases:
+                    continue
+                seen.add(key)
+                display.setdefault(key, " ".join(original[i:i + size]))
+        per_row.append(seen)
+        for key in seen:
+            counts[key] = counts.get(key, 0) + 1
+
+    groups = {}
+    for row, candidates in zip(rows, per_row):
+        repeated = [key for key in candidates if counts[key] > 1]
+        candidates = repeated or [key for key in candidates if len(key.split()) <= 2] or list(candidates)
+        key = max(candidates, key=lambda value: (len(value.split()), counts[value], len(value)))
+        groups.setdefault(key, {"topic": display[key], "headlines": []})["headlines"].append(row)
+
+    ordered = sorted(groups.values(), key=lambda group: group["headlines"][0]["published_at"], reverse=True)
+    return ordered[:limit]
+
 def fetch_topics(genre, exclude_urls=()):
     if genre not in GENRES and genre not in DESK_PILLS:
         raise ValueError(f"Unknown genre: {genre}")
@@ -206,9 +250,31 @@ def fetch_topics(genre, exclude_urls=()):
         rows.sort(key=lambda x: x["published_at"], reverse=True)
         fresh = [r for r in rows if r["published_at"] >= now - timedelta(hours=24)]
 
+        if genre == "Cricket — India / Pakistan / Sri Lanka / Asia" and label == "India":
+            groups = _group_india_rows(fresh)
+            if len(groups) < 25:
+                groups = _group_india_rows([
+                    r for r in rows if r["published_at"] >= now - timedelta(hours=72)
+                ])
+            if groups:
+                headlines = [h for group in groups for h in group["headlines"]]
+                result.append({
+                    "topic": label,
+                    "groups": groups,
+                    "headlines": [
+                        {
+                            "title": r["title"],
+                            "url": r["url"],
+                            "publisher": r["publisher"],
+                            "published_at": r["published_at"].isoformat(),
+                        }
+                        for r in headlines
+                    ],
+                })
+            continue
+
         if genre == "Cricket — India / Pakistan / Sri Lanka / Asia":
-            limit = 25 if label == "India" else 5
-            rows = fresh if len(fresh) >= limit else [
+            rows = fresh if len(fresh) >= 5 else [
                 r for r in rows if r["published_at"] >= now - timedelta(hours=72)
             ]
         else:
@@ -224,7 +290,7 @@ def fetch_topics(genre, exclude_urls=()):
                         "publisher": r["publisher"],
                         "published_at": r["published_at"].isoformat(),
                     }
-                    for r in rows[:25 if genre == "Cricket — India / Pakistan / Sri Lanka / Asia" and label == "India" else 20]
+                    for r in rows[:20]
                 ],
             })
 
