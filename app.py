@@ -64,19 +64,22 @@ elif st.session_state.page == "deep-dive":
     for desk in DESKS:
         if st.button(desk, use_container_width=True):
             if desk == "Sports":
-                go("sports", desk)
+                go("sports", "Sports")
             else:
-                go("topics", desk=desk, genre=desk)
+                go("topics", desk, desk)
 
 elif st.session_state.page == "sports":
     st.button("← Deep-Dive", on_click=go, args=("deep-dive",))
     st.title("Sports")
     for genre in DESKS["Sports"]:
         if st.button(genre, use_container_width=True):
-            go("topics", desk="Sports", genre=genre)
+            go("topics", "Sports", genre)
 
 else:
-    st.button("← " + st.session_state.desk, on_click=go, args=("deep-dive",))
+    if st.session_state.desk == "Sports":
+        st.button("← Sports", on_click=go, args=("sports", "Sports"))
+    else:
+        st.button("← Deep-Dive", on_click=go, args=("deep-dive",))
     st.title(st.session_state.genre)
     st.markdown('<div class="stage"><span class="active">01 Topic Fetcher</span><span>02 Scriptwriter</span><span>03 Audio</span><span>04 Subtitles</span><span>05 Visuals</span><span>06 Renderer</span><span>07 Upload</span></div>', unsafe_allow_html=True)
 

@@ -164,6 +164,8 @@ Deep-Dive → Sports → Cricket / Global Cricket / Niche Sports → Topic Fetch
 Non-Sports:
 Deep-Dive → News / Entertainment / Technology / Business & Finance / Gaming / Science & Space → Topic Fetcher.
 
+From a Sports Topic Fetcher, the back button returns to Sports; non-Sports returns to Deep-Dive.
+
 The Topic Fetcher screen starts with Fetch stories and then shows Search 20 more.
 
 The dashboard remains light/warm with readable buttons and compact headline cards.
