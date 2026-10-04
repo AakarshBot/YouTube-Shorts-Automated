@@ -480,6 +480,11 @@ elif st.session_state.page == "scriptwriter":
                                 source_stage=stage,
                                 script_only=True,
                             )
+                            if result["status"] == "ready":
+                                result["titles"] = list(previous["titles"])
+                                result["description"] = previous["description"]
+                                result["hashtags"] = list(previous["hashtags"])
+                                result["first_comment"] = previous["first_comment"]
                             errors = validate_script(result)
                             if errors:
                                 raise RuntimeError(" · ".join(errors))
