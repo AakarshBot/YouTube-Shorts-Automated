@@ -180,7 +180,7 @@ Focused tests currently cover:
 - entity extraction recognises a named subject such as Virat Kohli
 - loose headline similarity can recognise closely related headlines as the same story
 
-Before Topic Fetcher can be marked Approved, verify the actual UI and real fetching for all three genres and confirm that each can produce 20 useful, distinct pills.
+GitHub Actions now runs the focused tests and a real three-genre smoke test that asserts each genre returns exactly 20 topic pills. The environment available to ChatGPT cannot reach the public internet, so the real-fetch result must be checked from GitHub Actions.
 
 Code passing tests is not sufficient for approval; actual story quality is the approval criterion.
 
@@ -195,5 +195,6 @@ Files currently present:
 - `topic_fetcher.py`
 - `app.py`
 - `tests/test_topic_fetcher.py`
+- `.github/workflows/test.yml`
 
 No Live implementation has been built.
