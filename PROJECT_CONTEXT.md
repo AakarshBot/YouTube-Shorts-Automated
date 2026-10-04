@@ -13,6 +13,7 @@ Current source of truth. Replace this file completely after every project change
 - English only for now.
 - Final editorial approval is manual.
 - Dashboard startup must not eagerly import stage modules that are not needed for the current page. Keep stage imports direct and local to the page/action that uses them.
+- Same-page widget actions must not trigger an unnecessary second full Streamlit rerun. Keep `st.rerun()` only where the state change requires a new page or a genuinely new generation cycle.
 
 ## Factory
 
@@ -211,6 +212,7 @@ The Scriptwriter test flow is:
 12. User can edit any of those fields, choose the strongest title, and approve the edited version or approve the generated version unchanged.
 13. Approval validates the edited package before the version becomes the Audio input.
 14. Improve / Re-run is available before approval.
+15. Same-page actions render from the state mutated during the current Streamlit interaction; do not add an extra `st.rerun()` just to refresh the same page. Full reruns remain for page transitions and actions such as retrying or starting a new generation cycle that cannot continue correctly in the current execution.
 
 The selected Topic Fetcher headline and selected desk/genre remain the starting story inputs. The approved title is stored for later handoff only and is never passed into Scriptwriter generation.
 
@@ -293,7 +295,7 @@ Subtitles, Visuals, Renderer and Upload are not active. Preserve their existing 
 
 - PROJECT_CONTEXT.md — current source of truth.
 - topic_fetcher.py — completed Topic Fetcher.
-- app.py — Test dashboard through Audio. Pipeline modules are loaded only when their stage is needed; Scriptwriter QC fields are edited directly in the page in a fixed editorial order with separated slide cards and packaging sections; Audio generation is explicitly started from the Audio page. Dashboard logic is kept direct; no stage wrapper/helper functions.
+- app.py — Test dashboard through Audio. Pipeline modules are loaded only when their stage is needed; Scriptwriter QC fields are edited directly in the page in a fixed editorial order with separated slide cards and packaging sections; Audio generation is explicitly started from the Audio page. Same-page actions avoid redundant second full reruns; full reruns are retained for page transitions and actions that genuinely require a new execution. Dashboard logic is kept direct; no stage wrapper/helper functions.
 - scriptwriter.py — source-first, desk-aware Scriptwriter approved at 6/10; pending multiple test cases across desks.
 - audio.py — local Chatterbox narration for approved Scriptwriter slides; implemented and pending local generation/QC.
 - tests/test_topic_fetcher.py — Topic Fetcher tests.
