@@ -110,7 +110,7 @@ def _groq(schema_name, schema, system, user):
     req = Request(
         GROQ_URL,
         data=json.dumps(payload).encode(),
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
         method="POST",
     )
     try:
