@@ -197,3 +197,66 @@ def test_generation_prompt_contains_locked_story_rules(monkeypatch):
     assert "use their proper name" in prompt
     assert "Approved YouTube title" not in prompt
     assert "Cricket — India / Pakistan / Sri Lanka / Asia" in captured["body"]["messages"][0]["content"]
+
+
+def test_script_only_redo_preserves_packaging(monkeypatch):
+    import scriptwriter
+
+    monkeypatch.setenv("GROQ_API_KEY", "test-key")
+    previous = make_ready(
+        slides=[
+            {"voiceover": "Original opening."},
+            {"voiceover": "Original second fact."},
+            {"voiceover": "Original third fact."},
+            {"voiceover": "Original ending."},
+        ],
+        headline="Original Script",
+    )
+    generated = make_ready(
+        slides=[
+            {"voiceover": "New opening."},
+            {"voiceover": "New second fact."},
+            {"voiceover": "New third fact."},
+            {"voiceover": "New ending."},
+        ],
+        headline="New Script",
+    )
+    generated["titles"] = ["Changed title", "Another changed title"]
+    generated["description"] = "Changed description."
+    generated["hashtags"] = ["#Changed"]
+    generated["first_comment"] = "Changed comment."
+
+    body = json.dumps({
+        "choices": [{
+            "message": {
+                "content": json.dumps(generated),
+            }
+        }]
+    })
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self, size=-1):
+            return body.encode()
+
+    monkeypatch.setattr(scriptwriter, "urlopen", lambda req, timeout=45: Response())
+
+    result = scriptwriter.generate_script(
+        {"title": "Story"},
+        [{"title": "Source", "url": "https://example.com", "text": "Important source facts."}],
+        "Cricket — India / Pakistan / Sri Lanka / Asia",
+        previous=previous,
+        script_only=True,
+    )
+
+    assert result["opening_headline"] == generated["opening_headline"]
+    assert result["slides"] == generated["slides"]
+    assert result["titles"] == previous["titles"]
+    assert result["description"] == previous["description"]
+    assert result["hashtags"] == previous["hashtags"]
+    assert result["first_comment"] == previous["first_comment"]
