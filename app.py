@@ -5,7 +5,7 @@ st.set_page_config(page_title="YouTube Shorts Automated", page_icon="▶", layou
 
 st.markdown("""
 <style>
-:root{--bg:#f6f4ef;--card:#fffdf8;--ink:#171915;--muted:#6b7068;--line:#dedbd1;--accent:#2255d6}
+:root{--bg:#f6f4ef;--card:#fffdf8;--ink:#171915;--muted:#6b7068;--line:#dedbd1}
 .stApp{background:var(--bg);color:var(--ink)}
 .block-container{max-width:1100px;padding:42px 34px 64px}
 h1{font-size:2.5rem;letter-spacing:-.04em}
@@ -14,8 +14,6 @@ h2{letter-spacing:-.03em}
 .stage{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0}
 .stage span{border:1px solid var(--line);padding:8px 12px;border-radius:999px;background:var(--card);font-size:.82rem}
 .stage .active{background:var(--ink);color:white;border-color:var(--ink)}
-.topic{border:1px solid var(--line);background:var(--card);border-radius:18px;padding:16px 18px;margin:10px 0}
-.topic-title{font-size:1.05rem;font-weight:700}
 .meta{color:var(--muted);font-size:.78rem;margin-top:5px}
 .stButton button{border-radius:999px}
 </style>
