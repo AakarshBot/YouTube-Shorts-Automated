@@ -1,66 +1,69 @@
 import json
 
-from scriptwriter import validate_script
+from scriptwriter import MAX_WORDS, validate_script
 
 
-def make_output(headline="Rohit Sharma Gets Praise", slides=None):
+def make_ready(slides=None, headline="Rohit Sharma Praise"):
     return {
+        "status": "ready",
+        "reason": "",
         "opening_headline": headline,
         "slides": slides or [
             {"voiceover": "Rohit Sharma got praise."},
-            {"voiceover": "The legend explained why."},
-            {"voiceover": "His comments focused on centuries."},
-            {"voiceover": "That is the key detail from the story."},
+            {"voiceover": "The former captain explained why his experience matters."},
+            {"voiceover": "The point centred on India's batting during pressure."},
         ],
-        "titles": ["Rohit Sharma Gets Praise", "Legend Praises Rohit Sharma"],
-        "description": "A legend praised Rohit Sharma.",
+        "titles": ["Rohit Sharma Praise", "Why Rohit's Experience Matters"],
+        "description": "The key point about Rohit Sharma's role.",
         "hashtags": ["#RohitSharma", "#Cricket"],
-        "first_comment": "Was this the right praise for Rohit?",
+        "first_comment": "Do you agree with the assessment?",
     }
 
 
-def test_valid_four_slide_output():
-    assert validate_script(make_output()) == []
+def test_valid_ready_output():
+    assert validate_script(make_ready()) == []
 
 
-def test_valid_five_slide_output():
-    script = make_output(
-        slides=[{"voiceover": f"Important fact {i}"} for i in range(5)]
-    )
+def test_slide_count_is_not_fixed():
+    script = make_ready(slides=[{"voiceover": f"Important fact {i}"} for i in range(6)])
     assert validate_script(script) == []
 
 
 def test_first_slide_must_be_under_fourteen_words():
-    script = make_output(
-        slides=[
-            {"voiceover": "One two three four five six seven eight nine ten eleven twelve thirteen fourteen"},
-            {"voiceover": "Second fact"},
-            {"voiceover": "Third fact"},
-            {"voiceover": "Fourth fact"},
-        ]
-    )
-    assert "Slide 1 must contain fewer than 14 words." in validate_script(script)
+    result = make_ready(slides=[
+        {"voiceover": "One two three four five six seven eight nine ten eleven twelve thirteen fourteen"},
+        {"voiceover": "Second fact."},
+    ])
+    assert "Slide 1 must contain fewer than 14 words." in validate_script(result)
 
 
-def test_opening_headline_must_be_three_or_four_words():
-    assert "Opening headline must contain exactly 3 or 4 words." in validate_script(
-        make_output("Two Words")
-    )
+def test_total_narration_must_be_65_words_or_less():
+    long = " ".join(["word"] * (MAX_WORDS + 1))
+    result = make_ready(slides=[{"voiceover": long}])
+    assert "Total narration must be 65 words or fewer." in validate_script(result)
 
 
-def test_narration_must_fit_thirty_second_target():
-    long = " ".join(["word"] * 76)
-    result = make_output(slides=[{"voiceover": long}] * 4)
-    assert "Total narration is too long for the 30-second target." in validate_script(result)
+def test_needs_more_sources_is_valid_without_script_fields():
+    result = {
+        "status": "needs_more_sources",
+        "reason": "The primary source only reports the claim and gives no supporting detail.",
+        "opening_headline": "",
+        "slides": [],
+        "titles": [],
+        "description": "",
+        "hashtags": [],
+        "first_comment": "",
+    }
+    assert validate_script(result) == []
 
 
 def test_duplicate_slides_are_rejected():
-    result = make_output(slides=[{"voiceover": "Same line"}] * 4)
+    result = make_ready(slides=[{"voiceover": "Same line."}] * 4)
     assert "Slides must not be duplicated." in validate_script(result)
 
 
 def test_packaging_is_required():
-    result = make_output()
+    result = make_ready()
     result["titles"] = []
     result["description"] = ""
     result["hashtags"] = []
@@ -101,7 +104,7 @@ def test_source_article_is_used_when_reachable(monkeypatch):
     assert text.startswith("Important article fact.")
 
 
-def test_gnews_summary_is_used_when_source_returns_400(monkeypatch):
+def test_gnews_summary_is_used_as_fallback(monkeypatch):
     import scriptwriter
     from urllib.error import HTTPError
 
@@ -117,61 +120,11 @@ def test_gnews_summary_is_used_when_source_returns_400(monkeypatch):
     assert text == "Story headline. GNews summary."
 
 
-def test_source_without_article_element_can_still_be_used(monkeypatch):
+def test_invalid_source_url_uses_summary_without_request(monkeypatch):
     import scriptwriter
 
     def fake_urlopen(req, timeout=12):
-        return _Response("<html><body>" + ("Important article fact. " * 30) + "</body></html>")
-
-    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
-    text = scriptwriter.article_text({
-        "title": "Story",
-        "url": "https://example.com/story",
-        "description": "Short summary.",
-    })
-    assert len(text) >= 300
-
-
-def test_source_without_readable_content_uses_gnews_summary(monkeypatch):
-    import scriptwriter
-
-    def fake_urlopen(req, timeout=12):
-        return _Response("<html><head></head><body>Blocked</body></html>")
-
-    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
-    text = scriptwriter.article_text({
-        "title": "Story headline",
-        "url": "https://example.com/story",
-        "description": "Useful factual summary.",
-    })
-    assert text == "Story headline. Useful factual summary."
-
-
-def test_source_requires_evidence(monkeypatch):
-    import scriptwriter
-    from urllib.error import HTTPError
-
-    def fake_urlopen(req, timeout=12):
-        raise HTTPError(req.full_url, 403, "Forbidden", {}, None)
-
-    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
-    try:
-        scriptwriter.article_text({
-            "title": "Story headline",
-            "url": "https://example.com/story",
-            "description": "",
-        })
-    except RuntimeError as exc:
-        assert str(exc) == "The selected story has no readable source evidence."
-    else:
-        raise AssertionError("Expected missing-evidence error")
-
-
-def test_invalid_source_url_uses_gnews_summary(monkeypatch):
-    import scriptwriter
-
-    def fake_urlopen(req, timeout=12):
-        raise AssertionError("Publisher URL should not be opened for an invalid URL")
+        raise AssertionError("Invalid URL should not be opened")
 
     monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
     text = scriptwriter.article_text({
@@ -182,7 +135,31 @@ def test_invalid_source_url_uses_gnews_summary(monkeypatch):
     assert text == "Story headline. GNews summary."
 
 
-def test_generation_prompt_has_no_approved_title(monkeypatch):
+def test_related_sources_use_existing_gnews(monkeypatch):
+    import scriptwriter
+
+    class FakeGNews:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def get_news(self, title):
+            return [{
+                "title": "Related report",
+                "url": "https://example.com/related",
+                "publisher": "Example",
+                "description": "Related detail.",
+            }]
+
+    monkeypatch.setattr(scriptwriter, "GNews", FakeGNews)
+    monkeypatch.setattr(scriptwriter, "article_text", lambda story: "A" * 400)
+    result = scriptwriter.find_related_sources({
+        "title": "Story",
+        "url": "https://example.com/story",
+    })
+    assert result[0]["url"] == "https://example.com/related"
+
+
+def test_generation_prompt_contains_locked_story_rules(monkeypatch):
     import scriptwriter
 
     monkeypatch.setenv("GROQ_API_KEY", "test-key")
@@ -196,18 +173,20 @@ def test_generation_prompt_has_no_approved_title(monkeypatch):
             return False
 
         def read(self, size=-1):
-            return b'{"choices":[{"message":{"content":"{\"opening_headline\":\"Rohit Gets Praise\",\"slides\":[{\"voiceover\":\"Rohit Sharma got praise.\"},{\"voiceover\":\"A legend explained why.\"},{\"voiceover\":\"The remark focused on centuries.\"},{\"voiceover\":\"That is the key story detail.\"}],\"titles\":[\"Rohit Sharma Gets Praise\",\"Legend Praises Rohit Sharma\"],\"description\":\"A legend praised Rohit Sharma.\",\"hashtags\":[\"#RohitSharma\",\"#Cricket\"],\"first_comment\":\"Was this the right praise for Rohit?\"}"}}]}'
+            return b'{"choices":[{"message":{"content":"{\\"status\\":\\"ready\\",\\"reason\\":\\"\\",\\"opening_headline\\":\\"Rohit Gets Praise\\",\\"slides\\":[{\\"voiceover\\":\\"Rohit Sharma got praise.\\"},{\\"voiceover\\":\\"His experience was the key reason.\\"}],\\"titles\\":[\\"Rohit Sharma Gets Praise\\",\\"Why Rohit\\"],\\"description\\":\\"The story.\\",\\"hashtags\\":[\\"#Cricket\\"],\\"first_comment\\":\\"Thoughts?\\"}"}}]}'
 
     def fake_urlopen(req, timeout=45):
         captured["body"] = json.loads(req.data)
         return Response()
 
     monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
-    result = scriptwriter.generate_script(
+    scriptwriter.generate_script(
         {"title": "Indian legend praises Rohit Sharma"},
-        "A named Indian legend praised Rohit Sharma.",
+        [{"title": "Source", "url": "https://example.com", "text": "A named source identifies Sunil Gavaskar."}],
     )
     prompt = captured["body"]["messages"][1]["content"]
+    assert "Write from scratch after understanding the full story." in prompt
+    assert "There is no fixed slide count." in prompt
+    assert "65 words or fewer" in prompt
+    assert "use their proper name" in prompt
     assert "Approved YouTube title" not in prompt
-    assert "A named Indian legend praised Rohit Sharma." in prompt
-    assert result["titles"]

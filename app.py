@@ -1,6 +1,6 @@
 import streamlit as st
 
-from scriptwriter import article_text, generate_script, validate_script
+from scriptwriter import article_text, find_related_sources, generate_script, manual_sources, validate_script
 from topic_fetcher import DESKS, GENRES, fetch_topics
 
 st.set_page_config(page_title="YouTube Shorts Automated", page_icon="▶", layout="wide")
@@ -35,13 +35,48 @@ for key, value in {
     "topics": [],
     "seen_urls": set(),
     "selected_story": None,
-    "source_text": "",
+    "source_evidence": [],
     "script_versions": [],
     "approved_title": None,
     "approved_version": None,
     "script_error": None,
+    "writer_status": None,
+    "writer_reason": None,
+    "auto_sources_attempted": False,
+    "manual_sources_attempted": False,
 }.items():
     st.session_state.setdefault(key, value)
+
+
+def reset_writer(story):
+    st.session_state.selected_story = story
+    st.session_state.source_evidence = []
+    st.session_state.script_versions = []
+    st.session_state.approved_title = None
+    st.session_state.approved_version = None
+    st.session_state.script_error = None
+    st.session_state.writer_status = None
+    st.session_state.writer_reason = None
+    st.session_state.auto_sources_attempted = False
+    st.session_state.manual_sources_attempted = False
+
+
+def run_writer(stage):
+    story = st.session_state.selected_story
+    try:
+        result = generate_script(story, st.session_state.source_evidence, source_stage=stage)
+        errors = validate_script(result)
+        if errors:
+            raise RuntimeError(" · ".join(errors))
+        st.session_state.writer_status = result["status"]
+        st.session_state.writer_reason = result.get("reason") or None
+        if result["status"] == "ready":
+            st.session_state.script_versions = [result]
+        return result
+    except Exception as exc:
+        st.session_state.script_error = str(exc)
+        return None
+
 
 if st.session_state.page == "home":
     st.title("YouTube Shorts Automated")
@@ -114,9 +149,7 @@ elif st.session_state.page == "topics":
         if st.button("Fetch stories", type="primary"):
             with st.spinner("Finding current stories…"):
                 st.session_state.topics = fetch_topics(st.session_state.genre)
-            st.session_state.seen_urls = {
-                h["url"] for item in st.session_state.topics for h in item["headlines"]
-            }
+            st.session_state.seen_urls = {h["url"] for item in st.session_state.topics for h in item["headlines"]}
             st.rerun()
 
     topics = st.session_state.topics
@@ -142,9 +175,7 @@ elif st.session_state.page == "topics":
                 else:
                     topics.append(item)
             st.session_state.topics = topics
-            st.session_state.seen_urls.update(
-                h["url"] for item in more for h in item["headlines"]
-            )
+            st.session_state.seen_urls.update(h["url"] for item in more for h in item["headlines"])
             st.rerun()
 
         st.caption(f"{len(topics)} {pill} pills")
@@ -155,33 +186,13 @@ elif st.session_state.page == "topics":
             with st.expander(f"{item['topic']} · {count} {label}"):
                 sections = item["groups"] if grouped else [item]
                 for section in sections:
-                    panel = (
-                        st.expander(
-                            f"{section['topic']} · {len(section['headlines'])} headlines"
-                        )
-                        if grouped
-                        else st.container()
-                    )
+                    panel = st.expander(f"{section['topic']} · {len(section['headlines'])} headlines") if grouped else st.container()
                     with panel:
                         for index, h in enumerate(section["headlines"]):
-                            st.markdown(
-                                f'<div class="headline">{h["title"]}</div>',
-                                unsafe_allow_html=True,
-                            )
-                            st.markdown(
-                                f"<div class='meta'>{h['publisher']} · {h['published_at'][:16].replace('T',' ')} · <a href='{h['url']}' target='_blank'>Source</a></div>",
-                                unsafe_allow_html=True,
-                            )
-                            if st.button(
-                                "Use this story →",
-                                key=f"pick-{h['url']}-{index}",
-                            ):
-                                st.session_state.selected_story = h
-                                st.session_state.source_text = ""
-                                st.session_state.script_versions = []
-                                st.session_state.approved_title = None
-                                st.session_state.approved_version = None
-                                st.session_state.script_error = None
+                            st.markdown(f'<div class="headline">{h["title"]}</div>', unsafe_allow_html=True)
+                            st.markdown(f"<div class='meta'>{h['publisher']} · {h['published_at'][:16].replace('T',' ')} · <a href='{h['url']}' target='_blank'>Source</a></div>", unsafe_allow_html=True)
+                            if st.button("Use this story →", key=f"pick-{h['url']}-{index}"):
+                                reset_writer(h)
                                 st.session_state.page = "scriptwriter"
                                 st.rerun()
 
@@ -199,21 +210,36 @@ elif st.session_state.page == "scriptwriter":
     else:
         st.subheader("Selected story")
         st.markdown(f'<div class="headline">{story["title"]}</div>', unsafe_allow_html=True)
-        st.markdown(
-            f"<div class='meta'>{story['publisher']} · <a href='{story['url']}' target='_blank'>Source</a></div>",
-            unsafe_allow_html=True,
-        )
+        st.markdown(f"<div class='meta'>{story['publisher']} · <a href='{story['url']}' target='_blank'>Source</a></div>", unsafe_allow_html=True)
 
-        if not st.session_state.script_versions and not st.session_state.script_error:
+        if not st.session_state.source_evidence and not st.session_state.script_error:
             with st.spinner("Reading the source and writing the Short…"):
                 try:
-                    source = st.session_state.source_text or article_text(story)
-                    st.session_state.source_text = source
-                    result = generate_script(story, source)
-                    errors = validate_script(result)
-                    if errors:
-                        raise RuntimeError(" · ".join(errors))
-                    st.session_state.script_versions = [result]
+                    try:
+                        primary = {
+                            "title": story["title"],
+                            "url": story["url"],
+                            "publisher": story.get("publisher", ""),
+                            "text": article_text(story),
+                        }
+                        st.session_state.source_evidence = [primary]
+                        result = run_writer("primary")
+                    except (RuntimeError, ValueError):
+                        result = None
+
+                    if result is None or (result["status"] == "needs_more_sources" and not st.session_state.auto_sources_attempted):
+                        st.session_state.auto_sources_attempted = True
+                        with st.spinner("The story needs more context. Finding related sources…"):
+                            related = find_related_sources(story)
+                        st.session_state.source_evidence.extend(related)
+                        if related:
+                            run_writer("automatic")
+                        elif result:
+                            st.session_state.writer_status = "needs_more_sources"
+                            st.session_state.writer_reason = result.get("reason") or "The primary source needs more supporting information."
+                        else:
+                            st.session_state.writer_status = "needs_more_sources"
+                            st.session_state.writer_reason = "The selected source could not be read, so more source information is needed."
                 except Exception as exc:
                     st.session_state.script_error = str(exc)
 
@@ -223,26 +249,37 @@ elif st.session_state.page == "scriptwriter":
                 st.session_state.script_error = None
                 st.rerun()
 
+        if st.session_state.writer_status == "needs_more_sources" and not st.session_state.script_versions:
+            st.warning("Not enough of a story yet")
+            st.write(st.session_state.writer_reason or "More source information is needed to build a genuine Short.")
+            urls = st.text_area("Additional source URLs", placeholder="Paste one or more URLs, one per line")
+            if not st.session_state.manual_sources_attempted and st.button("Add sources and build Short", type="primary", use_container_width=True):
+                st.session_state.manual_sources_attempted = True
+                with st.spinner("Reading the additional sources and building the Short…"):
+                    added = manual_sources(urls.splitlines())
+                    st.session_state.source_evidence.extend(added)
+                    if added:
+                        result = run_writer("manual")
+                        if result and result["status"] == "needs_more_sources":
+                            st.session_state.writer_reason = result.get("reason") or "The available sources still do not contain enough information for a genuine Short."
+                    else:
+                        st.session_state.writer_status = "needs_more_sources"
+                        st.session_state.writer_reason = "The additional URLs could not provide readable source information."
+                st.rerun()
+
+            if st.session_state.manual_sources_attempted and not st.session_state.script_versions:
+                st.error(st.session_state.writer_reason or "Not enough information to create a Short.")
+
         if st.session_state.script_versions:
+            st.caption(f"Sources used: {len(st.session_state.source_evidence)}")
             for index, version in enumerate(st.session_state.script_versions):
                 st.subheader(f"Version {index + 1}")
-                st.markdown(
-                    f'<div class="script-card"><div class="screen-headline">{version["opening_headline"]}</div></div>',
-                    unsafe_allow_html=True,
-                )
+                st.markdown(f'<div class="script-card"><div class="screen-headline">{version["opening_headline"]}</div></div>', unsafe_allow_html=True)
                 for number, slide in enumerate(version["slides"], 1):
-                    st.markdown(
-                        f'<div class="script-card"><h4>Slide {number}</h4><div>{slide["voiceover"]}</div></div>',
-                        unsafe_allow_html=True,
-                    )
+                    st.markdown(f'<div class="script-card"><h4>Slide {number}</h4><div>{slide["voiceover"]}</div></div>', unsafe_allow_html=True)
 
                 st.subheader("Title options")
-                choice = st.selectbox(
-                    "Choose the strongest title",
-                    version["titles"],
-                    index=0,
-                    key=f"title-{index}",
-                )
+                choice = st.selectbox("Choose the strongest title", version["titles"], index=0, key=f"title-{index}")
                 st.markdown("**Description**")
                 st.write(version["description"])
                 st.markdown("**Hashtags**")
@@ -251,15 +288,8 @@ elif st.session_state.page == "scriptwriter":
                 st.write(version["first_comment"])
 
                 if st.session_state.approved_version == index:
-                    st.success(
-                        f"Version {index + 1} approved · {st.session_state.approved_title}"
-                    )
-                elif st.button(
-                    f"Approve Version {index + 1}",
-                    key=f"approve-script-{index}",
-                    type="primary",
-                    use_container_width=True,
-                ):
+                    st.success(f"Version {index + 1} approved · {st.session_state.approved_title}")
+                elif st.button(f"Approve Version {index + 1}", key=f"approve-script-{index}", type="primary", use_container_width=True):
                     st.session_state.approved_version = index
                     st.session_state.approved_title = choice
                     st.session_state.script_error = None
@@ -268,29 +298,21 @@ elif st.session_state.page == "scriptwriter":
             if st.session_state.script_error:
                 st.error(st.session_state.script_error)
 
-            if (
-                st.session_state.approved_version is None
-                and len(st.session_state.script_versions) == 1
-            ):
-                if st.button(
-                    "Improve / Re-run",
-                    type="primary",
-                    use_container_width=True,
-                ):
+            if st.session_state.approved_version is None and len(st.session_state.script_versions) == 1:
+                if st.button("Improve / Re-run", type="primary", use_container_width=True):
                     previous = st.session_state.script_versions[0]
                     st.session_state.script_error = None
-                    with st.spinner("Writing a different version…"):
+                    with st.spinner("Writing a genuinely different version…"):
                         try:
-                            result = generate_script(
-                                story,
-                                st.session_state.source_text,
-                                previous=previous,
-                            )
+                            stage = "manual" if st.session_state.manual_sources_attempted else "automatic" if st.session_state.auto_sources_attempted else "primary"
+                            result = generate_script(story, st.session_state.source_evidence, previous=previous, source_stage=stage)
                             errors = validate_script(result)
                             if errors:
                                 raise RuntimeError(" · ".join(errors))
-                            st.session_state.script_versions.append(result)
+                            if result["status"] == "needs_more_sources":
+                                st.session_state.script_error = "Improve / Re-run could not create a stronger Short from the available sources."
+                            else:
+                                st.session_state.script_versions.append(result)
                         except Exception as exc:
                             st.session_state.script_error = str(exc)
                     st.rerun()
-
