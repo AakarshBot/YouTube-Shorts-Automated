@@ -35,6 +35,8 @@ def test_first_slide_must_be_under_fourteen_words():
     result = make_ready(slides=[
         {"voiceover": "One two three four five six seven eight nine ten eleven twelve thirteen fourteen"},
         {"voiceover": "Second fact."},
+        {"voiceover": "Third fact."},
+        {"voiceover": "Fourth fact."},
     ])
     assert "Slide 1 must contain fewer than 14 words." in validate_script(result)
 
