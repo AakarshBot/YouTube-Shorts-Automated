@@ -33,8 +33,6 @@ OUTPUT_SCHEMA = {
         "opening_headline": {"type": "string"},
         "slides": {
             "type": "array",
-            "minItems": MIN_SLIDES,
-            "maxItems": MAX_SLIDES,
             "items": {
                 "type": "object",
                 "properties": {"voiceover": {"type": "string"}},
