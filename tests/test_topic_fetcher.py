@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from topic_fetcher import BAD, DESK_PILLS, DESKS, GENRES, _group_india_rows
 
 SPORTS = "Sports"
@@ -42,11 +44,11 @@ def test_cricket_page_filter_rejects_reference_pages():
 
 def test_india_headlines_group_by_shared_title_entity():
     rows = [
-        {"title": "Virat Kohli leads India after match win", "published_at": "2026-10-04T10:00:00+00:00"},
-        {"title": "Kohli backed to shine again for India", "published_at": "2026-10-04T09:00:00+00:00"},
-        {"title": "India await Asia Cup title challenge", "published_at": "2026-10-04T08:00:00+00:00"},
-        {"title": "Asia Cup contenders prepare for battle", "published_at": "2026-10-04T07:00:00+00:00"},
-        {"title": "Jasprit Bumrah returns to training", "published_at": "2026-10-04T06:00:00+00:00"},
+        {"title": "Virat Kohli leads India after match win", "published_at": datetime(2026, 10, 4, 10, tzinfo=timezone.utc)},
+        {"title": "Kohli backed to shine again for India", "published_at": datetime(2026, 10, 4, 9, tzinfo=timezone.utc)},
+        {"title": "India await Asia Cup title challenge", "published_at": datetime(2026, 10, 4, 8, tzinfo=timezone.utc)},
+        {"title": "Asia Cup contenders prepare for battle", "published_at": datetime(2026, 10, 4, 7, tzinfo=timezone.utc)},
+        {"title": "Jasprit Bumrah returns to training", "published_at": datetime(2026, 10, 4, 6, tzinfo=timezone.utc)},
     ]
     groups = _group_india_rows(rows)
     kohli = next(group for group in groups if "kohli" in group["topic"].lower())
@@ -54,3 +56,4 @@ def test_india_headlines_group_by_shared_title_entity():
     assert len(kohli["headlines"]) == 2
     assert len(asia["headlines"]) == 2
     assert len(groups) == 3
+    assert all(isinstance(row["published_at"], str) for group in groups for row in group["headlines"])

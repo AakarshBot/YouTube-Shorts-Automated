@@ -196,6 +196,15 @@ def _group_india_rows(rows, limit=25):
         groups.setdefault(key, {"topic": display[key], "headlines": []})["headlines"].append(row)
 
     ordered = sorted(groups.values(), key=lambda group: group["headlines"][0]["published_at"], reverse=True)
+    for group in ordered:
+        group["headlines"] = [
+            {
+                **row,
+                "published_at": row["published_at"].isoformat()
+                if isinstance(row["published_at"], datetime) else row["published_at"],
+            }
+            for row in group["headlines"]
+        ]
     return ordered[:limit]
 
 def fetch_topics(genre, exclude_urls=()):
@@ -266,7 +275,7 @@ def fetch_topics(genre, exclude_urls=()):
                             "title": r["title"],
                             "url": r["url"],
                             "publisher": r["publisher"],
-                            "published_at": r["published_at"].isoformat(),
+                            "published_at": r["published_at"],
                         }
                         for r in headlines
                     ],
