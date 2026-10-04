@@ -38,9 +38,18 @@ Do not reopen unless a later requirement or regression requires it.
 - Do not add Playwright, another news service, a custom Google News client, copied GNews code or another dependency merely to reduce runtime.
 - The remaining GNews URL-resolution cost is accepted; sub-20-second first-fetch time is not guaranteed under these constraints.
 
-## Scriptwriter — SPEC LOCKED / IMPLEMENTATION UNDER TEST
+## Scriptwriter — SPEC LOCKED / APPROVED — 6/10 — PENDING MULTIPLE TEST CASES
 
-The selected Topic Fetcher headline is sent to Scriptwriter as the story to investigate.
+The selected Topic Fetcher headline is sent to Scriptwriter as the story to investigate. The selected Topic Fetcher desk/genre is passed directly to Scriptwriter so the writer's editorial context matches the selected desk.
+
+
+### Desk-aware editorial context
+
+- The existing selected Topic Fetcher desk/genre is passed directly into every Scriptwriter generation run.
+- The Groq system instruction identifies the writer as an experienced editor for the selected desk/genre.
+- This applies to Sports subdesks and non-sports desks alike.
+- Desk awareness changes editorial context only; the core source-first story, factual, slide, timing and packaging rules remain shared across desks.
+- Do not create separate Scriptwriter pipelines, wrappers, desk routers or desk-specific generation functions unless a later requirement explicitly requires different rules.
 
 ### Core editorial rule
 
@@ -198,7 +207,7 @@ The Scriptwriter test flow is:
 10. User manually chooses a title and approves the version.
 11. Improve / Re-run is available before approval.
 
-The selected Topic Fetcher headline remains the starting story input. The approved title is stored for later handoff only and is never passed into Scriptwriter generation.
+The selected Topic Fetcher headline and selected desk/genre remain the starting story inputs. The approved title is stored for later handoff only and is never passed into Scriptwriter generation.
 
 ## Top-5 — PLANNED
 
@@ -218,7 +227,7 @@ Audio, Subtitles, Visuals, Renderer and Upload are not active. Preserve their ex
 - PROJECT_CONTEXT.md — current source of truth.
 - topic_fetcher.py — completed Topic Fetcher.
 - app.py — Test dashboard and Scriptwriter flow. Dashboard logic is kept direct; no Scriptwriter wrapper/helper functions.
-- scriptwriter.py — source-first Scriptwriter under test.
+- scriptwriter.py — source-first, desk-aware Scriptwriter approved at 6/10; pending multiple test cases across desks.
 - tests/test_topic_fetcher.py — Topic Fetcher tests.
 - tests/test_scriptwriter.py — Scriptwriter tests.
 - .github/workflows/test.yml — deterministic CI.
