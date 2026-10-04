@@ -15,7 +15,7 @@ if not os.getenv("GROQ_API_KEY"):
         with open(env_path, encoding="utf-8") as env_file:
             for line in env_file:
                 if line.strip().startswith("GROQ_API_KEY="):
-                    os.environ["GROQ_API_KEY"] = line.split("=", 1)[1].strip().strip("\\"'")
+                    os.environ["GROQ_API_KEY"] = line.split("=", 1)[1].strip().strip("'").strip('"')
                     break
 HEADLINE_SCHEMA = {
     "type": "object",
