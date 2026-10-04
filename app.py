@@ -208,7 +208,7 @@ elif st.session_state.page == "scriptwriter":
 
                     if primary:
                         st.session_state.source_evidence = [primary]
-                        result = generate_script(story, st.session_state.source_evidence, source_stage="primary")
+                        result = generate_script(story, st.session_state.source_evidence, st.session_state.genre, source_stage="primary")
                         errors = validate_script(result)
                         if errors:
                             raise RuntimeError(" · ".join(errors))
@@ -235,6 +235,7 @@ elif st.session_state.page == "scriptwriter":
                             result = generate_script(
                                 story,
                                 st.session_state.source_evidence,
+                                st.session_state.genre,
                                 source_stage="automatic",
                             )
                             errors = validate_script(result)
@@ -271,7 +272,7 @@ elif st.session_state.page == "scriptwriter":
                     st.session_state.source_evidence.extend(added)
                     if added:
                         try:
-                            result = generate_script(story, st.session_state.source_evidence, source_stage="manual")
+                            result = generate_script(story, st.session_state.source_evidence, st.session_state.genre, source_stage="manual")
                             errors = validate_script(result)
                             if errors:
                                 raise RuntimeError(" · ".join(errors))
@@ -327,7 +328,7 @@ elif st.session_state.page == "scriptwriter":
                     with st.spinner("Writing a genuinely different version…"):
                         try:
                             stage = "manual" if st.session_state.manual_sources_attempted else "automatic" if st.session_state.auto_sources_attempted else "primary"
-                            result = generate_script(story, st.session_state.source_evidence, previous=previous, source_stage=stage)
+                            result = generate_script(story, st.session_state.source_evidence, st.session_state.genre, previous=previous, source_stage=stage)
                             errors = validate_script(result)
                             if errors:
                                 raise RuntimeError(" · ".join(errors))
