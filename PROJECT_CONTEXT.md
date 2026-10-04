@@ -64,8 +64,6 @@ Regional Cricket uses one targeted Google News search per country in the first p
 
 Cricket searches target specific team, board, player or format signals instead of a generic country-plus-cricket query. Google News exclusions remove obvious records, database and utility material before it reaches Python.
 
-Python keeps only a small deterministic blacklist for obvious utility/reference pages. It does not try to semantically judge every article.
-
 #### Global Cricket
 
 Country pills:
@@ -84,13 +82,15 @@ Cricket is excluded. Only fresh qualifying stories create sport pills.
 
 Reject obvious utility/reference pages such as schedules, fixtures, standings, scorecards, watch guides, predicted lineups, galleries, quizzes, odds, recaps, round-ups and similar pages.
 
-For cricket, also reject explicit database pages such as “records & stats”, “team records”, “career stats” and “cricket grounds”.
+For cricket, also reject explicit database/reference pages containing phrases such as “record & stats”, “records & stats”, “team records”, “career stats” and “cricket grounds”.
+
+The cricket blacklist is deterministic and title-based. It must match these reference phrases without requiring quotation marks in the headline.
 
 Do not add an LLM classifier, article scraper, publisher allowlist, alternate news API, cache layer or additional runtime dependency.
 
 A keyword mention alone is not the retrieval strategy. Queries should be specific enough to favour actual current cricket stories while preserving legitimate broader stories connected to a cricket development.
 
-### Freshness and dedupe
+## Freshness and dedupe
 
 - Freshness target: newest 24 hours.
 - Regional Cricket: 72-hour fallback only when India/Pakistan/Sri Lanka misses its target.
