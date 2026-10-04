@@ -180,7 +180,7 @@ Focused tests currently cover:
 - entity extraction recognises a named subject such as Virat Kohli
 - loose headline similarity can recognise closely related headlines as the same story
 
-GitHub Actions now runs the focused tests and a real three-genre smoke test that asserts each genre returns exactly 20 topic pills. The environment available to ChatGPT cannot reach the public internet, so the real-fetch result must be checked from GitHub Actions.
+GitHub Actions installs pytest only in CI, runs the focused tests, then runs a real three-genre smoke test that asserts each genre returns exactly 20 topic pills. The environment available to ChatGPT cannot reach the public internet, so the real-fetch result must be checked from GitHub Actions.
 
 Code passing tests is not sufficient for approval; actual story quality is the approval criterion.
 
