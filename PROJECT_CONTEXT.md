@@ -133,9 +133,22 @@ The Scriptwriter should not constantly fail on secondary factory rules after gen
 
 ### Source handling
 
-Topic Fetcher supplies the selected story's source URL and source metadata. The Scriptwriter must receive usable source/article text derived from that selected source before generation.
+Topic Fetcher is the source-of-truth handoff for Scriptwriter. Each selected headline must carry:
+- title
+- URL
+- publisher
+- published_at
+- GNews description/summary
 
-Do not add runtime dependencies or new API services solely to make Scriptwriter more elaborate. Prefer existing repository capabilities and direct standard-library/simple implementations. A new dependency requires explicit approval.
+The complete URL is preserved exactly enough for normal navigation; query parameters must not be stripped.
+
+Scriptwriter does not depend on Google News URL decoding and does not require a publisher page to be reachable. On selection:
+1. Try the supplied source URL with a normal direct HTTP request.
+2. Use the page's article element when available; otherwise use readable page text.
+3. If the publisher returns an HTTP/network error or the page contains insufficient readable text, use the Topic Fetcher's GNews description together with the selected headline as the factual source evidence.
+4. Only fail when there is no readable publisher text and no usable GNews description.
+
+This makes source handling universal across desks without adding Playwright, a URL-decoder package, an article-extraction dependency or another API service. A publisher blocking automated requests must not stop the Scriptwriter from producing a factual first draft from the evidence already supplied by Topic Fetcher.
 
 ### Scriptwriter architecture for the current Test page
 
@@ -177,4 +190,8 @@ These stages are not the current active task. Preserve existing functions and ha
 
 ### CI notes for current Scriptwriter work
 
-- Initial Scriptwriter validation tests caught a fixture error where a valid-headline test reused identical slide text. The validator was correct; the fixture was corrected.
+- Scriptwriter objective tests cover the first-slide word limit, slide count, duration target, headline format and duplicate-slide rejection.
+- Source-handling tests cover successful publisher reads, HTTP failures falling back to the GNews summary, pages without an article element and missing-evidence failure.
+- The previous Google News redirect-decoding implementation was removed. It was unnecessarily fragile and could itself produce HTTP 400 failures.
+- The current source handoff is intentionally the same for every desk; no desk-specific article-fetching logic should be added.
+- GitHub Actions on main has a separate Topic Fetcher live smoke-test requirement; do not reopen Topic Fetcher unless that regression is directly affected by a Scriptwriter change.
