@@ -42,7 +42,7 @@ The current Scriptwriter work is limited to the Scriptwriter Test page.
 
 The Test dashboard is sequential: manually selecting a headline in Topic Fetcher is the Scriptwriter trigger. Standalone Scriptwriter tests will only be added when explicitly requested.
 
-The Test page first generates title options for the selected story. The user manually approves one title. Only after that approval is the opening screen headline and spoken script generated.
+The Test page first generates title options for the selected story and presents them in a dropdown. The user manually approves one title. Only after that approval is the opening screen headline and spoken script generated.
 
 ### Non-negotiable editorial rules
 
