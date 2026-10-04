@@ -454,19 +454,41 @@ elif st.session_state.page == "scriptwriter":
                 st.error(st.session_state.script_error)
 
             if st.session_state.approved_version is None and len(st.session_state.script_versions) == 1:
-                if st.button("Improve / Re-run", type="primary", use_container_width=True):
+                st.markdown("### Redo script")
+                redo_urls = st.text_area(
+                    "Additional source URLs (optional)",
+                    placeholder="Paste one or more URLs, one per line. Leave blank to use the current sources.",
+                    key="redo-source-urls",
+                )
+                if st.button("Redo Script", type="primary", use_container_width=True):
                     previous = st.session_state.script_versions[0]
                     st.session_state.script_error = None
-                    with st.spinner("Writing a genuinely different version…"):
+                    with st.spinner("Writing a genuinely different script…"):
                         try:
                             stage = "manual" if st.session_state.manual_sources_attempted else "automatic" if st.session_state.auto_sources_attempted else "primary"
-                            result = generate_script(story, st.session_state.source_evidence, st.session_state.genre, previous=previous, source_stage=stage)
+                            if redo_urls.strip():
+                                added = manual_sources(redo_urls.splitlines())
+                                if not added:
+                                    raise RuntimeError("The additional URLs did not provide readable source information.")
+                                st.session_state.source_evidence.extend(added)
+                                stage = "manual"
+                            result = generate_script(
+                                story,
+                                st.session_state.source_evidence,
+                                st.session_state.genre,
+                                previous=previous,
+                                source_stage=stage,
+                                script_only=True,
+                            )
                             errors = validate_script(result)
                             if errors:
                                 raise RuntimeError(" · ".join(errors))
                             if result["status"] == "needs_more_sources":
-                                st.session_state.script_error = "Improve / Re-run could not create a stronger Short from the available sources."
+                                st.session_state.writer_status = result["status"]
+                                st.session_state.writer_reason = result.get("reason") or "More source information is needed for a stronger script."
                             else:
+                                st.session_state.writer_status = result["status"]
+                                st.session_state.writer_reason = None
                                 st.session_state.script_versions.append(result)
                         except Exception as exc:
                             st.session_state.script_error = str(exc)
