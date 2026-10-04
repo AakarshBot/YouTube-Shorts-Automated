@@ -8,61 +8,58 @@ from gnews import GNews
 GENRES = {
     "Cricket — India / Pakistan / Sri Lanka / Asia": {
         "India": [
-            ("IN", '"cricket" India latest BCCI when:3d'),
-            ("IN", '"cricket" Kohli Rohit Bumrah Gill when:3d'),
-            ("IN", '"cricket" India women domestic U19 when:3d'),
-            ("IN", '"cricket" India record milestone injury comeback when:3d'),
+            ("IN", '"cricket" India when:1d'),
         ],
         "Pakistan": [
-            ("PK", '"cricket" Pakistan PCB Babar Shaheen Rizwan when:3d'),
-            ("PK", '"cricket" Pakistan women domestic PSL when:3d'),
-            ("PK", '"cricket" Pakistan selection controversy record when:3d'),
+            ("PK", '"cricket" Pakistan when:1d'),
         ],
         "Sri Lanka": [
-            ("LK", '"cricket" Sri Lanka SLC Hasaranga Mendis Nissanka when:3d'),
-            ("LK", '"cricket" Sri Lanka women domestic when:3d'),
-            ("LK", '"cricket" Sri Lanka selection controversy record when:3d'),
+            ("LK", '"cricket" Sri Lanka when:1d'),
         ],
-        "Bangladesh": [("BD", '"cricket" Bangladesh BCB latest milestone controversy when:3d')],
-        "Afghanistan": [("AF", '"cricket" Afghanistan ACB latest milestone controversy when:3d')],
+        "Bangladesh": [
+            ("BD", '"cricket" Bangladesh when:1d'),
+        ],
+        "Afghanistan": [
+            ("AF", '"cricket" Afghanistan when:1d'),
+        ],
     },
     "Cricket — Global": {
         "Australia": [
-            ("AU", '"cricket" Australia latest record injury controversy when:3d'),
-            ("AU", '"cricket" Australia women milestone comeback when:3d'),
+            ("AU", '"cricket" Australia when:1d'),
         ],
         "England": [
-            ("GB", '"cricket" England latest record injury controversy when:3d'),
-            ("GB", '"cricket" England women county milestone when:3d'),
+            ("GB", '"cricket" England when:1d'),
         ],
         "South Africa": [
-            ("ZA", '"cricket" South Africa latest record injury controversy when:3d'),
-            ("ZA", '"cricket" South Africa women milestone when:3d'),
+            ("ZA", '"cricket" South Africa when:1d'),
         ],
         "New Zealand": [
-            ("NZ", '"cricket" New Zealand latest record injury controversy when:3d'),
-            ("NZ", '"cricket" New Zealand women milestone when:3d'),
+            ("NZ", '"cricket" New Zealand when:1d'),
         ],
-        "Ireland": [("IE", '"cricket" Ireland latest record injury controversy when:3d')],
-        "Zimbabwe": [("ZW", '"cricket" Zimbabwe latest record injury controversy when:3d')],
+        "Ireland": [
+            ("IE", '"cricket" Ireland when:1d'),
+        ],
+        "Zimbabwe": [
+            ("ZW", '"cricket" Zimbabwe when:1d'),
+        ],
     },
     "Niche Sports — Global": {
-        "Football": [("GB", "football soccer Premier League Champions League when:3d")],
-        "Tennis": [("GB", "tennis ATP WTA Grand Slam when:3d")],
-        "Basketball": [("US", "basketball NBA WNBA FIBA when:3d")],
-        "Athletics": [("US", "athletics track field latest record when:3d")],
-        "Motorsport": [("GB", "Formula 1 F1 MotoGP motorsport when:3d")],
-        "Badminton": [("MY", "badminton BWF latest when:3d")],
-        "Hockey": [("CA", "ice hockey NHL latest when:3d")],
-        "Golf": [("US", "golf PGA LPGA latest when:3d")],
-        "Boxing": [("US", "boxing latest title fight comeback when:3d")],
-        "Wrestling": [("US", "wrestling WWE latest when:3d")],
-        "Swimming": [("AU", "swimming world record latest when:3d")],
-        "Rugby": [("NZ", "rugby union rugby league latest when:3d")],
-        "Volleyball": [("JP", "volleyball latest world championship when:3d")],
-        "Cycling": [("FR", "cycling Tour de France latest when:3d")],
-        "Baseball": [("US", "baseball MLB latest when:3d")],
-        "Table Tennis": [("JP", "table tennis WTT latest when:3d")],
+        "Football": [("GB", "football soccer Premier League Champions League when:1d")],
+        "Tennis": [("GB", "tennis ATP WTA Grand Slam when:1d")],
+        "Basketball": [("US", "basketball NBA WNBA FIBA when:1d")],
+        "Athletics": [("US", "athletics track field latest record when:1d")],
+        "Motorsport": [("GB", "Formula 1 F1 MotoGP motorsport when:1d")],
+        "Badminton": [("MY", "badminton BWF latest when:1d")],
+        "Hockey": [("CA", "ice hockey NHL latest when:1d")],
+        "Golf": [("US", "golf PGA LPGA latest when:1d")],
+        "Boxing": [("US", "boxing latest title fight comeback when:1d")],
+        "Wrestling": [("US", "wrestling WWE latest when:1d")],
+        "Swimming": [("AU", "swimming world record latest when:1d")],
+        "Rugby": [("NZ", "rugby union rugby league latest when:1d")],
+        "Volleyball": [("JP", "volleyball latest world championship when:1d")],
+        "Cycling": [("FR", "cycling Tour de France latest when:1d")],
+        "Baseball": [("US", "baseball MLB latest when:1d")],
+        "Table Tennis": [("JP", "table tennis WTT latest when:1d")],
     },
 }
 
@@ -99,20 +96,16 @@ def fetch_topics(genre, exclude_urls=()):
 
     def fetch(search):
         label, country, query = search
-        news = GNews(language="en", country=country, max_results=100)
-        return label, [
-            {**item, "_country": country}
-            for item in news.get_news(query)
-        ]
+        news = GNews(language="en", country=country, max_results=30, max_retries=1)
+        return label, news.get_news(query)
 
-    with ThreadPoolExecutor(max_workers=len(searches)) as pool:
-        batches = pool.map(fetch, searches)
+    with ThreadPoolExecutor(max_workers=min(8, len(searches))) as pool:
         grouped = {label: [] for label in GENRES[genre]}
-        seen = set()
-        for label, batch in batches:
+        seen = set(blocked_urls)
+        for label, batch in pool.map(fetch, searches):
             for item in batch:
                 title, url = _clean(item.get("title")), _url(item.get("url"))
-                if not title or not url or url in seen or url in blocked_urls or BAD.search(title):
+                if not title or not url or url in seen or BAD.search(title):
                     continue
                 if genre.startswith("Cricket") and not CRICKET_ONLY.search(title):
                     continue
@@ -129,6 +122,34 @@ def fetch_topics(genre, exclude_urls=()):
                     "published_at": published,
                 })
                 seen.add(url)
+
+    if genre == "Cricket — India / Pakistan / Sri Lanka / Asia":
+        fallback = [
+            (label, country, query.replace("when:1d", "when:3d"))
+            for label in ("India", "Pakistan", "Sri Lanka")
+            if len(grouped[label]) < (20 if label == "India" else 5)
+            for country, query in GENRES[genre][label]
+        ]
+        if fallback:
+            with ThreadPoolExecutor(max_workers=min(8, len(fallback))) as pool:
+                for label, batch in pool.map(fetch, fallback):
+                    for item in batch:
+                        title, url = _clean(item.get("title")), _url(item.get("url"))
+                        if not title or not url or url in seen or BAD.search(title):
+                            continue
+                        if not CRICKET_ONLY.search(title):
+                            continue
+                        try:
+                            published = parsedate_to_datetime(item.get("published date", "")).astimezone(timezone.utc)
+                        except (TypeError, ValueError, AttributeError):
+                            continue
+                        grouped[label].append({
+                            "title": title,
+                            "url": url,
+                            "publisher": _clean(item.get("publisher")),
+                            "published_at": published,
+                        })
+                        seen.add(url)
 
     now = datetime.now(timezone.utc)
     result = []
