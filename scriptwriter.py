@@ -53,8 +53,8 @@ class _Text(HTMLParser):
 
 
 def article_text(story):
-    if not story:
-        raise ValueError("Selected story is missing.")
+    if not story or not story.get("url"):
+        raise ValueError("Selected story has no source URL.")
 
     try:
         req = Request(
@@ -77,10 +77,11 @@ def article_text(story):
     except (HTTPError, URLError, TimeoutError):
         pass
 
-    summary = re.sub(r"\\s+", " ", html.unescape(str(story.get("description") or ""))).strip()
+    summary = re.sub(r"\s+", " ", html.unescape(str(story.get("description") or ""))).strip()
     if summary:
         return f'{story["title"]}. {summary}'
     raise RuntimeError("The selected story has no readable source evidence.")
+
 
 def _groq(schema_name, schema, system, user):
     key = os.getenv("GROQ_API_KEY")
