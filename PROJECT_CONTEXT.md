@@ -133,7 +133,9 @@ The Scriptwriter should not constantly fail on secondary factory rules after gen
 
 ### Source handling
 
-Topic Fetcher supplies the selected story's source URL and source metadata. The Scriptwriter must receive usable source/article text derived from that selected source before generation.
+Topic Fetcher supplies the selected story's source URL and source metadata. The complete source URL must be preserved; do not strip query parameters because some Google News URLs require them.
+
+The Scriptwriter must receive usable source/article text derived from that selected source before generation. When the selected URL is a Google News redirect, Scriptwriter resolves the redirect before fetching the publisher article. Legacy Google News URLs are resolved from their embedded url query parameter. Current encoded Google News URLs are resolved by reading the per-article signature and timestamp from the Google News article page, then making Google's batchexecute request with the standard library only.
 
 Do not add runtime dependencies or new API services solely to make Scriptwriter more elaborate. Prefer existing repository capabilities and direct standard-library/simple implementations. A new dependency requires explicit approval.
 
@@ -178,3 +180,7 @@ These stages are not the current active task. Preserve existing functions and ha
 ### CI notes for current Scriptwriter work
 
 - Initial Scriptwriter validation tests caught a fixture error where a valid-headline test reused identical slide text. The validator was correct; the fixture was corrected.
+- A source-fetch bug was traced to the Topic Fetcher stripping URL query strings and Scriptwriter attempting to open Google News redirect URLs directly. The source URL is now preserved, and current Google News encoded URLs are resolved by obtaining their per-article signature/timestamp and calling the batchexecute endpoint with the standard library.
+- The first attempted redirect implementation used an invalid static batchexecute payload and was discarded.
+- GitHub Actions run #49 failed during pytest collection because the added Scriptwriter test contained a malformed triple-quoted string. The production files compiled successfully; the test was rewritten with plain strings.
+- GitHub Actions on main separately has a Topic Fetcher live smoke-test failure in the regional topic-count assertion; that remains outside Scriptwriter unless the regression requires reopening it.

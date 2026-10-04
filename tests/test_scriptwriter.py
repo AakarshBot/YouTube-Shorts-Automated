@@ -71,3 +71,68 @@ def test_duplicate_slides_are_rejected():
 def test_missing_approved_title_is_rejected():
     result = script()
     assert validate_script(result, "") == ["Approved title is missing."]
+
+
+class _Response:
+    def __init__(self, text):
+        self.text = text.encode()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self, size=-1):
+        return self.text
+
+
+def test_google_news_redirect_url_is_resolved(monkeypatch):
+    import json
+    import scriptwriter
+
+    calls = []
+
+    def fake_urlopen(req, timeout=12):
+        calls.append(req.full_url)
+        if "batchexecute" in req.full_url:
+            body = json.dumps([
+                ["Fbv4je", None, json.dumps(["garturlres", "https://example.com/story"])],
+                ["ignored"],
+                ["ignored"],
+            ])
+            return _Response("ignored\n\n" + body)
+        if "/articles/test-token" in req.full_url:
+            return _Response(
+                '<html><c-wiz><div data-n-a-id="test-token" '
+                'data-n-a-sg="sig" data-n-a-ts="123"></div></c-wiz></html>'
+            )
+        return _Response("<html><article>" + ("Important article fact. " * 30) + "</article></html>")
+
+    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
+    text = scriptwriter.article_text(
+        "https://news.google.com/rss/articles/test-token?oc=5"
+    )
+    assert len(text) >= 300
+    assert calls == [
+        "https://news.google.com/articles/test-token",
+        "https://news.google.com/_/DotsSplashUi/data/batchexecute",
+        "https://example.com/story",
+    ]
+
+
+def test_google_news_legacy_url_query_is_resolved(monkeypatch):
+    import scriptwriter
+
+    calls = []
+
+    def fake_urlopen(req, timeout=12):
+        calls.append(req.full_url)
+        return _Response("<html><article>" + ("Important article fact. " * 30) + "</article></html>")
+
+    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
+    text = scriptwriter.article_text(
+        "https://news.google.com/news/url?url=https%3A%2F%2Fexample.com%2Fstory&oc=5"
+    )
+    assert len(text) >= 300
+    assert calls == ["https://example.com/story"]
