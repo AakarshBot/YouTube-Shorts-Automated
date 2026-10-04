@@ -9,7 +9,7 @@ Current source of truth. Replace this file completely after every project change
 - Delete and rewrite code directly when the current approach is wrong.
 - No new runtime dependencies or API services unless explicitly approved.
 - Groq is called directly from Scriptwriter. Do not add a Groq SDK or generic request wrapper.
-- The local Groq key is read directly from the repo-root .env as GROQ_API_KEY when it is not already in the environment. Never store the key itself in code or CI.
+- The local Groq key is read directly from the repo-root .env as GROQ_API_KEY when it is not already in the environment. Never store the key itself in code or CI. Groq requests use a browser-style User-Agent because the API edge can reject bare Python urllib clients with Cloudflare error 1010.
 - English only for now.
 - Final editorial approval is manual.
 
