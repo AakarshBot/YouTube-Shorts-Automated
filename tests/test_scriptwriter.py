@@ -1,34 +1,37 @@
+import json
+
 from scriptwriter import validate_script
 
 
-def script(headline="A Real Story Now", slides=None):
+def make_output(headline="Rohit Sharma Gets Praise", slides=None):
     return {
         "opening_headline": headline,
-        "slides": slides or [{"voiceover": "One clear fact. "}] * 4,
+        "slides": slides or [
+            {"voiceover": "Rohit Sharma got praise."},
+            {"voiceover": "The legend explained why."},
+            {"voiceover": "His comments focused on centuries."},
+            {"voiceover": "That is the key detail from the story."},
+        ],
+        "titles": ["Rohit Sharma Gets Praise", "Legend Praises Rohit Sharma"],
+        "description": "A legend praised Rohit Sharma.",
+        "hashtags": ["#RohitSharma", "#Cricket"],
+        "first_comment": "Was this the right praise for Rohit?",
     }
 
 
-def test_valid_four_slide_script():
-    result = script(
-        slides=[
-            {"voiceover": "India made history with this result."},
-            {"voiceover": "The key moment changed the contest."},
-            {"voiceover": "That result came after a major performance."},
-            {"voiceover": "The outcome now sets up what happens next."},
-        ]
-    )
-    assert validate_script(result, "India Make History") == []
+def test_valid_four_slide_output():
+    assert validate_script(make_output()) == []
 
 
-def test_valid_five_slide_script():
-    result = script(
+def test_valid_five_slide_output():
+    script = make_output(
         slides=[{"voiceover": f"Important fact {i}"} for i in range(5)]
     )
-    assert validate_script(result, "A Different Angle") == []
+    assert validate_script(script) == []
 
 
 def test_first_slide_must_be_under_fourteen_words():
-    result = script(
+    script = make_output(
         slides=[
             {"voiceover": "One two three four five six seven eight nine ten eleven twelve thirteen fourteen"},
             {"voiceover": "Second fact"},
@@ -36,46 +39,42 @@ def test_first_slide_must_be_under_fourteen_words():
             {"voiceover": "Fourth fact"},
         ]
     )
-    assert "Slide 1 must contain fewer than 14 words." in validate_script(result, "Title")
+    assert "Slide 1 must contain fewer than 14 words." in validate_script(script)
 
 
 def test_opening_headline_must_be_three_or_four_words():
     assert "Opening headline must contain exactly 3 or 4 words." in validate_script(
-        script("Two Words"), "Title"
+        make_output("Two Words")
     )
-    result = script(
-        "Four Important Words",
-        slides=[
-            {"voiceover": "First useful fact"},
-            {"voiceover": "Second useful fact"},
-            {"voiceover": "Third useful fact"},
-            {"voiceover": "Fourth useful fact"},
-        ],
-    )
-    assert validate_script(result, "Title") == []
 
 
 def test_narration_must_fit_thirty_second_target():
     long = " ".join(["word"] * 76)
-    result = script(slides=[{"voiceover": long}] * 4)
-    assert "Total narration is too long for the 30-second target." in validate_script(
-        result, "Title"
-    )
+    result = make_output(slides=[{"voiceover": long}] * 4)
+    assert "Total narration is too long for the 30-second target." in validate_script(result)
 
 
 def test_duplicate_slides_are_rejected():
-    result = script(slides=[{"voiceover": "Same line"}] * 4)
-    assert "Slides must not be duplicated." in validate_script(result, "Title")
+    result = make_output(slides=[{"voiceover": "Same line"}] * 4)
+    assert "Slides must not be duplicated." in validate_script(result)
 
 
-def test_missing_approved_title_is_rejected():
-    result = script()
-    assert validate_script(result, "") == ["Approved title is missing."]
+def test_packaging_is_required():
+    result = make_output()
+    result["titles"] = []
+    result["description"] = ""
+    result["hashtags"] = []
+    result["first_comment"] = ""
+    errors = validate_script(result)
+    assert "At least two title options are required." in errors
+    assert "Description is required." in errors
+    assert "At least one relevant hashtag is required." in errors
+    assert "First comment is required." in errors
 
 
 class _Response:
-    def __init__(self, text):
-        self.text = text.encode()
+    def __init__(self, body):
+        self.body = body.encode()
 
     def __enter__(self):
         return self
@@ -84,7 +83,7 @@ class _Response:
         return False
 
     def read(self, size=-1):
-        return self.text
+        return self.body
 
 
 def test_source_article_is_used_when_reachable(monkeypatch):
@@ -104,9 +103,9 @@ def test_source_article_is_used_when_reachable(monkeypatch):
 
 def test_gnews_summary_is_used_when_source_returns_400(monkeypatch):
     import scriptwriter
+    from urllib.error import HTTPError
 
     def fake_urlopen(req, timeout=12):
-        from urllib.error import HTTPError
         raise HTTPError(req.full_url, 400, "Bad Request", {}, None)
 
     monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
@@ -150,9 +149,9 @@ def test_source_without_readable_content_uses_gnews_summary(monkeypatch):
 
 def test_source_requires_evidence(monkeypatch):
     import scriptwriter
+    from urllib.error import HTTPError
 
     def fake_urlopen(req, timeout=12):
-        from urllib.error import HTTPError
         raise HTTPError(req.full_url, 403, "Forbidden", {}, None)
 
     monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
@@ -181,3 +180,34 @@ def test_invalid_source_url_uses_gnews_summary(monkeypatch):
         "description": "GNews summary.",
     })
     assert text == "Story headline. GNews summary."
+
+
+def test_generation_prompt_has_no_approved_title(monkeypatch):
+    import scriptwriter
+
+    monkeypatch.setenv("GROQ_API_KEY", "test-key")
+    captured = {}
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self, size=-1):
+            return b'{"choices":[{"message":{"content":"{\"opening_headline\":\"Rohit Gets Praise\",\"slides\":[{\"voiceover\":\"Rohit Sharma got praise.\"},{\"voiceover\":\"A legend explained why.\"},{\"voiceover\":\"The remark focused on centuries.\"},{\"voiceover\":\"That is the key story detail.\"}],\"titles\":[\"Rohit Sharma Gets Praise\",\"Legend Praises Rohit Sharma\"],\"description\":\"A legend praised Rohit Sharma.\",\"hashtags\":[\"#RohitSharma\",\"#Cricket\"],\"first_comment\":\"Was this the right praise for Rohit?\"}"}}]}'
+
+    def fake_urlopen(req, timeout=45):
+        captured["body"] = json.loads(req.data)
+        return Response()
+
+    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
+    result = scriptwriter.generate_script(
+        {"title": "Indian legend praises Rohit Sharma"},
+        "A named Indian legend praised Rohit Sharma.",
+    )
+    prompt = captured["body"]["messages"][1]["content"]
+    assert "Approved YouTube title" not in prompt
+    assert "A named Indian legend praised Rohit Sharma." in prompt
+    assert result["titles"]

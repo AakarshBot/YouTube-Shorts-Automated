@@ -10,22 +10,16 @@ GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 if not os.getenv("GROQ_API_KEY"):
-    env_path = os.path.join(os.path.dirname(__file__), ".env")
-    if os.path.isfile(env_path):
-        with open(env_path, encoding="utf-8-sig") as env_file:
+    path = os.path.join(os.path.dirname(__file__), ".env")
+    if os.path.isfile(path):
+        with open(path, encoding="utf-8-sig") as env_file:
             for line in env_file:
                 name, separator, value = line.strip().partition("=")
                 if separator and name.strip().removeprefix("export ").strip() == "GROQ_API_KEY":
                     os.environ["GROQ_API_KEY"] = value.strip().strip("'").strip('"')
                     break
 
-HEADLINE_SCHEMA = {
-    "type": "object",
-    "properties": {"titles": {"type": "array", "items": {"type": "string"}}},
-    "required": ["titles"],
-    "additionalProperties": False,
-}
-SCRIPT_SCHEMA = {
+OUTPUT_SCHEMA = {
     "type": "object",
     "properties": {
         "opening_headline": {"type": "string"},
@@ -38,8 +32,27 @@ SCRIPT_SCHEMA = {
                 "additionalProperties": False,
             },
         },
+        "titles": {
+            "type": "array",
+            "items": {"type": "string"},
+            "minItems": 2,
+        },
+        "description": {"type": "string"},
+        "hashtags": {
+            "type": "array",
+            "items": {"type": "string"},
+            "minItems": 1,
+        },
+        "first_comment": {"type": "string"},
     },
-    "required": ["opening_headline", "slides"],
+    "required": [
+        "opening_headline",
+        "slides",
+        "titles",
+        "description",
+        "hashtags",
+        "first_comment",
+    ],
     "additionalProperties": False,
 }
 
@@ -68,129 +81,109 @@ def article_text(story):
         raise ValueError("Selected story has no source URL.")
 
     try:
-        req = Request(
-            story["url"],
-            headers={
-                "User-Agent": "Mozilla/5.0",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.9",
-            },
-        )
+        req = Request(story["url"], headers={"User-Agent": "Mozilla/5.0"})
         with urlopen(req, timeout=12) as response:
             raw = response.read(300000).decode("utf-8", "ignore")
         article = re.search(r"<article\b.*?</article>", raw, flags=re.I | re.S)
-        target = article.group(0) if article else raw
         parser = _Text()
-        parser.feed(re.sub(r"<head.*?</head>", " ", target, flags=re.I | re.S))
+        parser.feed(
+            re.sub(
+                r"<head.*?</head>",
+                " ",
+                article.group(0) if article else raw,
+                flags=re.I | re.S,
+            )
+        )
         text = re.sub(r"\s+", " ", html.unescape(" ".join(parser.parts))).strip()
         if len(text) >= 300:
             return text[:20000]
     except (HTTPError, URLError, TimeoutError, ValueError):
         pass
 
-    summary = re.sub(r"\s+", " ", html.unescape(str(story.get("description") or ""))).strip()
+    summary = re.sub(
+        r"\s+", " ", html.unescape(str(story.get("description") or ""))
+    ).strip()
     if summary:
         return f'{story["title"]}. {summary}'
     raise RuntimeError("The selected story has no readable source evidence.")
 
 
-def generate_titles(story, source):
-    prompt = f"""Write YouTube Shorts title options for this story.
+def generate_script(story, source, previous=None):
+    previous_text = ""
+    if previous:
+        previous_text = f"""
+Previous draft:
+Opening: {previous["opening_headline"]}
+Slides: {" ".join(slide["voiceover"] for slide in previous["slides"])}
 
-Selected headline:
+Create a genuinely different editorial angle and narrative spine. Do not merely swap words.
+"""
+    prompt = f"""Create a factual YouTube Short from this source.
+
+Selected Topic Fetcher headline:
 {story["title"]}
-
-Source:
-{source[:12000]}
-
-Return as many strong options as the story genuinely supports. There is no required count.
-Use meaningfully different packaging angles, such as direct/result-led, consequence/significance-led, or intrigue-led when supported.
-Keep every option accurate to the source, concise, natural, Shorts-friendly, with important words early.
-No clickbait, fake curiosity, unsupported claims, excessive capitals or emoji.
-Do not simply rewrite the supplied headline."""
-    key = os.getenv("GROQ_API_KEY")
-    if not key:
-        raise RuntimeError("GROQ_API_KEY is not set.")
-    payload = {
-        "model": MODEL,
-        "messages": [
-            {"role": "system", "content": "You are a sharp sports/news video editor. Facts in the supplied source are the only authority."},
-            {"role": "user", "content": prompt},
-        ],
-        "temperature": 0.4,
-        "max_tokens": 1800,
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": {"name": "short_titles", "strict": True, "schema": HEADLINE_SCHEMA},
-        },
-    }
-    req = Request(
-        GROQ_URL,
-        data=json.dumps(payload).encode(),
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urlopen(req, timeout=45) as response:
-            data = json.load(response)
-        titles = json.loads(data["choices"][0]["message"]["content"])["titles"]
-    except HTTPError as exc:
-        detail = exc.read().decode("utf-8", "ignore")
-        raise RuntimeError(f"Groq request failed: {detail[:500]}") from exc
-    except (URLError, TimeoutError) as exc:
-        raise RuntimeError(f"Groq request failed: {exc}") from exc
-    except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
-        raise RuntimeError("Groq returned an invalid structured response.") from exc
-    if not titles:
-        raise RuntimeError("No title options were returned.")
-    return titles
-
-
-def generate_script(story, approved_title, source, improve=False):
-    angle = (
-        "Create a genuinely different editorial angle and narrative spine from the previous draft. Do not merely swap words."
-        if improve
-        else "Choose the strongest supported editorial angle for the first draft."
-    )
-    prompt = f"""Write the spoken script and opening screen headline for a YouTube Short.
-
-Selected source headline:
-{story["title"]}
-
-Approved YouTube title:
-{approved_title}
 
 Source evidence:
 {source[:18000]}
+{previous_text}
 
-{angle}
+Work in this order:
+1. Understand the source and decide what actually happened.
+2. Choose the strongest supported editorial angle.
+3. Write the complete 4-slide Short, using 5 only when necessary.
+4. Only after the story is complete, create the YouTube titles, description, hashtags and first comment to package that finished Short.
 
-Rules:
-- 4 or 5 slides; use 4 unless a fifth contains necessary information.
-- Slide 1 spoken narration must be fewer than 14 words.
-- Total spoken narration must fit 30 seconds at normal delivery; do not stretch the story.
+The selected Topic Fetcher headline is context only. There is no approved YouTube title and no title should influence the story.
+
+Story rules:
+- Write from the source evidence, not from the headline alone.
+- Reorder and synthesise facts; do not follow source paragraphs mechanically.
+- Cover the important facts and context. Four slides should normally cover roughly 90% of the important story.
+- Slide 1 spoken narration must contain fewer than 14 words.
+- Total narration must fit 30 seconds and stay at or below 75 words.
 - Every slide must add important information.
-- The source is evidence, not the script. Write from scratch, reorder facts and synthesise the strongest details.
-- Cover roughly 90% of the important source information across four slides unless a fifth is genuinely necessary.
-- Build retention through real facts, tension, consequence, significance or surprise. Never withhold the answer or use fake curiosity.
-- No invented facts, motives, quotes, numbers, reactions or predictions.
-- No filler, repetition, generic AI-news language, forced jokes or clickbait.
-- Keep the voice confident, sharp, human and natural for spoken delivery.
-- Opening headline must be exactly 3 or 4 words, story-specific and contain zero filler."""
+- Name central people, teams, organisations, events and other specific entities explicitly.
+- If a named person is central, use their actual name. Never replace them with "a legend", "a star", "the veteran" or "the player".
+- If a person's remark or opinion is central, identify that person and preserve the meaning and tone of the remark.
+- Do not let the selected headline determine the story angle.
+- Do not turn praise into criticism, advice into a demand, possibility into certainty or one detail into a larger narrative without evidence.
+- Do not invent controversy, criticism, pressure, doubts about form, legacy concerns, retirement implications, motives, reactions, stakes or consequences.
+- Do not invent facts, statistics, quotes, predictions or conclusions.
+- Retention must come from actual facts, context, contrast, consequence, significance or surprise in the source.
+- No filler, repetition, generic AI-news language or clickbait.
+- Opening screen headline must be exactly 3 or 4 words and specifically identify the story.
+
+Packaging rules:
+- Titles must accurately represent the completed Short.
+- Generate at least two genuinely different title angles.
+- Put important names and story terms early.
+- Description must explain the actual story naturally.
+- Hashtags must be relevant only.
+- The first comment must be specific to this story and invite a genuine response.
+- Do not let packaging introduce facts that are absent from the source or completed Short.
+"""
     key = os.getenv("GROQ_API_KEY")
     if not key:
         raise RuntimeError("GROQ_API_KEY is not set.")
+
     payload = {
         "model": MODEL,
         "messages": [
-            {"role": "system", "content": "You are an experienced editor writing concise, factual YouTube Shorts scripts."},
+            {
+                "role": "system",
+                "content": "You are an experienced sports/news editor. The supplied source is the factual authority.",
+            },
             {"role": "user", "content": prompt},
         ],
-        "temperature": 0.4,
-        "max_tokens": 1800,
+        "temperature": 0.3,
+        "max_tokens": 2400,
         "response_format": {
             "type": "json_schema",
-            "json_schema": {"name": "short_script", "strict": True, "schema": SCRIPT_SCHEMA},
+            "json_schema": {
+                "name": "short_output",
+                "strict": True,
+                "schema": OUTPUT_SCHEMA,
+            },
         },
     }
     req = Request(
@@ -201,8 +194,7 @@ Rules:
     )
     try:
         with urlopen(req, timeout=45) as response:
-            data = json.load(response)
-        return json.loads(data["choices"][0]["message"]["content"])
+            return json.loads(json.load(response)["choices"][0]["message"]["content"])
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", "ignore")
         raise RuntimeError(f"Groq request failed: {detail[:500]}") from exc
@@ -212,26 +204,50 @@ Rules:
         raise RuntimeError("Groq returned an invalid structured response.") from exc
 
 
-def validate_script(script, approved_title):
-    if not approved_title.strip():
-        return ["Approved title is missing."]
-    headline = str(script.get("opening_headline", "")).strip()
-    slides = script.get("slides", [])
+def validate_script(result):
+    if not isinstance(result, dict):
+        return ["Script output is not an object."]
+
+    headline = str(result.get("opening_headline", "")).strip()
+    slides = result.get("slides", [])
     errors = []
+
     if len(slides) not in (4, 5):
         errors.append("Script must contain 4 or 5 slides.")
-    if not slides or len(re.findall(r"\b\w+[’'-]?\w*\b", slides[0]["voiceover"])) >= 14:
+    if not slides or not all(isinstance(slide, dict) for slide in slides):
+        errors.append("Every slide must be an object.")
+    elif len(re.findall(r"\b\w+[’'-]?\w*\b", slides[0].get("voiceover", ""))) >= 14:
         errors.append("Slide 1 must contain fewer than 14 words.")
+
     words = sum(
-        len(re.findall(r"\b\w+[’'-]?\w*\b", s.get("voiceover", "")))
-        for s in slides
+        len(re.findall(r"\b\w+[’'-]?\w*\b", slide.get("voiceover", "")))
+        for slide in slides
+        if isinstance(slide, dict)
     )
     if words > 75:
         errors.append("Total narration is too long for the 30-second target.")
-    if any(not s.get("voiceover", "").strip() for s in slides):
+    if not all(
+        isinstance(slide, dict) and slide.get("voiceover", "").strip()
+        for slide in slides
+    ):
         errors.append("Every slide needs spoken narration.")
     if len(re.findall(r"\b\S+\b", headline)) not in (3, 4):
         errors.append("Opening headline must contain exactly 3 or 4 words.")
-    if len({s["voiceover"].strip().lower() for s in slides if s.get("voiceover")}) < len(slides):
+
+    voices = [
+        slide["voiceover"].strip().lower()
+        for slide in slides
+        if isinstance(slide, dict) and slide.get("voiceover")
+    ]
+    if len(set(voices)) < len(voices):
         errors.append("Slides must not be duplicated.")
+
+    if len(result.get("titles", [])) < 2:
+        errors.append("At least two title options are required.")
+    if not str(result.get("description", "")).strip():
+        errors.append("Description is required.")
+    if not result.get("hashtags"):
+        errors.append("At least one relevant hashtag is required.")
+    if not str(result.get("first_comment", "")).strip():
+        errors.append("First comment is required.")
     return errors

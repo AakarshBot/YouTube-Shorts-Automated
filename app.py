@@ -1,6 +1,6 @@
 import streamlit as st
 
-from scriptwriter import article_text, generate_script, generate_titles, validate_script
+from scriptwriter import article_text, generate_script, validate_script
 from topic_fetcher import DESKS, GENRES, fetch_topics
 
 st.set_page_config(page_title="YouTube Shorts Automated", page_icon="▶", layout="wide")
@@ -172,12 +172,11 @@ elif st.session_state.page == "topics":
                             ):
                                 st.session_state.selected_story = h
                                 st.session_state.source_text = ""
-                                st.session_state.title_options = []
-                                st.session_state.approved_title = None
+                                    st.session_state.approved_title = None
+                            st.session_state.approved_version = None
+                                    st.session_state.approved_version = None
                                 st.session_state.script_versions = []
-                                st.session_state.script_approved = None
-                                st.session_state.title_error = None
-                                st.session_state.script_error = None
+                                        st.session_state.script_error = None
                                 st.session_state.page = "scriptwriter"
                                 st.rerun()
 
@@ -195,114 +194,98 @@ elif st.session_state.page == "scriptwriter":
     else:
         st.subheader("Selected story")
         st.markdown(f'<div class="headline">{story["title"]}</div>', unsafe_allow_html=True)
-        st.markdown(f"<div class='meta'>{story['publisher']} · <a href='{story['url']}' target='_blank'>Source</a></div>", unsafe_allow_html=True)
+        st.markdown(
+            f"<div class='meta'>{story['publisher']} · <a href='{story['url']}' target='_blank'>Source</a></div>",
+            unsafe_allow_html=True,
+        )
 
-        if not st.session_state.title_options and not st.session_state.title_error:
-            with st.spinner("Reading the source and creating title options…"):
+        if not st.session_state.script_versions and not st.session_state.script_error:
+            with st.spinner("Reading the source and writing the Short…"):
                 try:
-                    if not st.session_state.source_text:
-                        st.session_state.source_text = article_text(story)
-                    st.session_state.title_options = generate_titles(
-                        story, st.session_state.source_text
-                    )
+                    source = st.session_state.source_text or article_text(story)
+                    st.session_state.source_text = source
+                    result = generate_script(story, source)
+                    errors = validate_script(result)
+                    if errors:
+                        raise RuntimeError(" · ".join(errors))
+                    st.session_state.script_versions = [result]
                 except Exception as exc:
-                    st.session_state.title_error = str(exc)
+                    st.session_state.script_error = str(exc)
 
-        if st.session_state.title_error:
-            st.error(st.session_state.title_error)
-            if st.button("Try title generation again", type="primary"):
-                st.session_state.title_error = None
-                st.rerun()
-
-        elif not st.session_state.approved_title:
-            st.subheader("Choose a title")
-            st.caption("Title options are generated for this story. Approve one before the script is written.")
-            title_choice = st.selectbox(
-                "Title options",
-                st.session_state.title_options,
-                index=0,
-            )
-            if st.button("Approve title & generate script", type="primary", use_container_width=True):
-                st.session_state.approved_title = title_choice
-                st.session_state.script_error = None
-                with st.spinner("Writing the Short…"):
-                    try:
-                        script = generate_script(
-                            story,
-                            st.session_state.approved_title,
-                            st.session_state.source_text,
-                        )
-                        errors = validate_script(script, st.session_state.approved_title)
-                        if errors:
-                            st.session_state.script_error = " · ".join(errors)
-                        else:
-                            st.session_state.script_versions = [script]
-                            st.session_state.script_approved = None
-                    except Exception as exc:
-                        st.session_state.script_error = str(exc)
-                st.rerun()
-            st.caption(f"{len(st.session_state.title_options)} title options available.")
-
-        elif st.session_state.script_error and not st.session_state.script_versions:
+        if st.session_state.script_error and not st.session_state.script_versions:
             st.error(st.session_state.script_error)
-            st.caption("No automatic correction was applied.")
-            if st.button("Generate script again", type="primary"):
+            if st.button("Try again", type="primary"):
                 st.session_state.script_error = None
-                with st.spinner("Writing the Short…"):
-                    try:
-                        script = generate_script(
-                            story,
-                            st.session_state.approved_title,
-                            st.session_state.source_text,
-                        )
-                        errors = validate_script(script, st.session_state.approved_title)
-                        if errors:
-                            st.session_state.script_error = " · ".join(errors)
-                        else:
-                            st.session_state.script_versions = [script]
-                    except Exception as exc:
-                        st.session_state.script_error = str(exc)
                 st.rerun()
 
-        elif st.session_state.script_versions:
-            st.subheader("Approved title")
-            st.markdown(f'<div class="headline">{st.session_state.approved_title}</div>', unsafe_allow_html=True)
-
-            columns = st.columns(len(st.session_state.script_versions))
+        if st.session_state.script_versions:
             for index, version in enumerate(st.session_state.script_versions):
-                with columns[index]:
-                    st.markdown(f'<div class="script-card"><h4>Version {index + 1}</h4><div class="screen-headline">{version["opening_headline"]}</div></div>', unsafe_allow_html=True)
-                    for number, slide in enumerate(version["slides"], 1):
-                        st.markdown(f'<div class="script-card"><h4>Slide {number}</h4><div>{slide["voiceover"]}</div></div>', unsafe_allow_html=True)
-                    if st.session_state.script_approved == index:
-                        st.success("Approved for this test.")
-                    elif st.button(f"Approve Version {index + 1}", key=f"approve-script-{index}", use_container_width=True):
-                        st.session_state.script_approved = index
-                        st.rerun()
+                st.subheader(f"Version {index + 1}")
+                st.markdown(
+                    f'<div class="script-card"><div class="screen-headline">{version["opening_headline"]}</div></div>',
+                    unsafe_allow_html=True,
+                )
+                for number, slide in enumerate(version["slides"], 1):
+                    st.markdown(
+                        f'<div class="script-card"><h4>Slide {number}</h4><div>{slide["voiceover"]}</div></div>',
+                        unsafe_allow_html=True,
+                    )
 
-            st.divider()
-            if st.session_state.script_approved is None:
-                if st.button("Improve / Re-run", type="primary", use_container_width=True):
+                st.subheader("Title options")
+                choice = st.selectbox(
+                    "Choose the strongest title",
+                    version["titles"],
+                    index=0,
+                    key=f"title-{index}",
+                )
+                st.markdown("**Description**")
+                st.write(version["description"])
+                st.markdown("**Hashtags**")
+                st.write(" ".join(version["hashtags"]))
+                st.markdown("**First comment**")
+                st.write(version["first_comment"])
+
+                if st.session_state.approved_version == index:
+                    st.success(
+                        f"Version {index + 1} approved · {st.session_state.approved_title}"
+                    )
+                elif st.button(
+                    f"Approve Version {index + 1}",
+                    key=f"approve-script-{index}",
+                    type="primary",
+                    use_container_width=True,
+                ):
+                    st.session_state.approved_version = index
+                    st.session_state.approved_title = choice
                     st.session_state.script_error = None
-                    with st.spinner("Creating a different editorial angle…"):
+                    st.rerun()
+
+            if st.session_state.script_error:
+                st.error(st.session_state.script_error)
+
+            if (
+                st.session_state.approved_version is None
+                and len(st.session_state.script_versions) == 1
+            ):
+                if st.button(
+                    "Improve / Re-run",
+                    type="primary",
+                    use_container_width=True,
+                ):
+                    previous = st.session_state.script_versions[0]
+                    st.session_state.script_error = None
+                    with st.spinner("Writing a different version…"):
                         try:
-                            improved = generate_script(
+                            result = generate_script(
                                 story,
-                                st.session_state.approved_title,
                                 st.session_state.source_text,
-                                improve=True,
+                                previous=previous,
                             )
-                            errors = validate_script(improved, st.session_state.approved_title)
+                            errors = validate_script(result)
                             if errors:
-                                st.session_state.script_error = " · ".join(errors)
-                            else:
-                                st.session_state.script_versions = (
-                                    [st.session_state.script_versions[0], improved]
-                                )
+                                raise RuntimeError(" · ".join(errors))
+                            st.session_state.script_versions.append(result)
                         except Exception as exc:
                             st.session_state.script_error = str(exc)
                     st.rerun()
-                if st.session_state.script_error:
-                    st.error(st.session_state.script_error)
-            else:
-                st.success("Scriptwriter test approved.")
+
