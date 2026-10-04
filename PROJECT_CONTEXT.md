@@ -139,7 +139,7 @@ Do not add runtime dependencies or new API services solely to make Scriptwriter 
 
 ### Scriptwriter architecture for the current Test page
 
-Selected Topic Fetcher headline → source article → title options → manual title approval → one structured Scriptwriter generation → minimal deterministic validation → Test-page preview.
+Selected Topic Fetcher headline → source article (prefer the page's article element when available) → title options → manual title approval → one structured Scriptwriter generation → minimal deterministic validation → Test-page preview.
 
 If the title model returns no usable options, show an error and require a user-triggered retry; do not loop automatically.
 
