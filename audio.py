@@ -89,17 +89,17 @@ def generate_audio(version, run_number=1):
         try:
             import librosa
             rate = min(1.05, raw_duration / 29.7)
-            if rate > 1:
-                waves = [
-                    torch.from_numpy(
-                        librosa.effects.time_stretch(wave.squeeze(0).numpy(), rate=rate)
-                    ).unsqueeze(0)
-                    for wave in waves
-                ]
+            waves = [
+                torch.from_numpy(
+                    librosa.effects.time_stretch(wave.squeeze(0).numpy(), rate=rate)
+                ).unsqueeze(0)
+                for wave in waves
+            ]
         except ImportError as exc:
             raise RuntimeError("Audio is over 30 seconds and librosa is missing from the Chatterbox installation.") from exc
 
-    if raw_duration > 31.5:
+    final_duration = sum(wave.shape[-1] / MODEL.sr for wave in waves) + max(0, len(waves) - 1) * 0.08
+    if final_duration > 30.5:
         raise RuntimeError("The generated narration is too long to fit the 30-second Short even with slight speed adjustment.")
 
     for number, wav in enumerate(waves, 1):
@@ -115,7 +115,7 @@ def generate_audio(version, run_number=1):
             combined.append(silence)
     combined = torch.cat(combined, dim=-1)
     peak = combined.abs().max()
-    if peak:
+    if peak.item() > 0:
         combined = combined * (0.94 / peak)
     full_path = output_dir / "full.wav"
     torchaudio.save(str(full_path), combined, MODEL.sr)
