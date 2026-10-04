@@ -241,11 +241,7 @@ elif st.session_state.page == "scriptwriter":
                         st.session_state.script_error = str(exc)
                         st.session_state.approved_title = None
                 st.rerun()
-
-            if st.session_state.title_options:
-                st.caption(f"{len(st.session_state.title_options)} title options available.")
-                for option in st.session_state.title_options:
-                    st.markdown(f"- {option}")
+            st.caption(f"{len(st.session_state.title_options)} title options available.")
 
         elif st.session_state.script_error and not st.session_state.script_versions:
             st.error(st.session_state.script_error)
