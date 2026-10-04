@@ -173,3 +173,8 @@ These stages are not the current active task. Preserve existing functions and ha
 - tests/test_scriptwriter.py — Scriptwriter objective validation tests.
 - .github/workflows/test.yml — CI and real-fetch smoke tests.
 - requirements.txt — runtime dependencies.
+
+
+### CI notes for current Scriptwriter work
+
+- Initial Scriptwriter validation tests caught a fixture error where a valid-headline test reused identical slide text. The validator was correct; the fixture was corrected.
