@@ -1,12 +1,21 @@
 import json
 
-from scriptwriter import MAX_SLIDES, MAX_WORDS, MIN_SLIDES, validate_script
+from scriptwriter import MAX_SLIDES, MAX_WORDS, MIN_SLIDES, validate_editorial_angles, validate_script
 
 
-def make_ready(slides=None, headline="Rohit Sharma Praise"):
+def make_angle(title="Rohit Gets Backing"):
+    return {
+        "title": title,
+        "description": "Focus on the backing Rohit received and why it matters.",
+        "evidence_basis": "The source names Sunil Gavaskar and describes his assessment.",
+    }
+
+
+def make_ready(slides=None, headline="Rohit Sharma Praise", angle=None):
     return {
         "status": "ready",
         "reason": "",
+        "story_angle": angle or make_angle(),
         "opening_headline": headline,
         "slides": slides or [
             {"voiceover": "Rohit Sharma got praise."},
@@ -31,6 +40,7 @@ def test_slide_count_must_be_four_or_five():
     assert validate_script(make_ready(slides=[{"voiceover": f"Important fact {i}"} for i in range(5)])) == []
     assert validate_script(make_ready(slides=[{"voiceover": f"Important fact {i}"} for i in range(6)]))[0] == f"Script must contain {MIN_SLIDES}–{MAX_SLIDES} slides."
 
+
 def test_first_slide_must_be_under_fourteen_words():
     result = make_ready(slides=[
         {"voiceover": "One two three four five six seven eight nine ten eleven twelve thirteen fourteen"},
@@ -51,6 +61,7 @@ def test_needs_more_sources_is_valid_without_script_fields():
     result = {
         "status": "needs_more_sources",
         "reason": "The primary source only reports the claim and gives no supporting detail.",
+        "story_angle": None,
         "opening_headline": "",
         "slides": [],
         "titles": [],
@@ -77,6 +88,42 @@ def test_packaging_is_required():
     assert "Description is required." in errors
     assert "At least one relevant hashtag is required." in errors
     assert "First comment is required." in errors
+
+
+def test_story_angle_is_required():
+    result = make_ready()
+    result["story_angle"] = None
+    assert "A selected editorial angle is required." in validate_script(result)
+
+
+def test_editorial_angle_validation_requires_exactly_three():
+    base = {"status": "ready", "reason": "", "angles": [make_angle()]}
+    assert validate_editorial_angles(base)[0] == "Exactly three editorial angles are required."
+    valid = {
+        "status": "ready",
+        "reason": "",
+        "angles": [
+            make_angle("Rohit Gets Backing"),
+            make_angle("Gavaskar's Key Reason"),
+            make_angle("What Changed For India"),
+        ],
+    }
+    assert validate_editorial_angles(valid) == []
+
+
+def test_editorial_angle_titles_must_be_unique_and_two_to_five_words():
+    result = {
+        "status": "ready",
+        "reason": "",
+        "angles": [
+            make_angle("Same Angle"),
+            make_angle("Same Angle"),
+            make_angle("One Two Three Four Five Six"),
+        ],
+    }
+    errors = validate_editorial_angles(result)
+    assert "Editorial angle titles must be unique." in errors
+    assert "Editorial angle 3 title must contain 2–5 words." in errors
 
 
 class _Response:
@@ -163,41 +210,149 @@ def test_related_sources_use_existing_gnews(monkeypatch):
     assert result[0]["url"] == "https://example.com/related"
 
 
-def test_generation_prompt_contains_locked_story_rules(monkeypatch):
+def test_editorial_angle_generation_uses_supplied_evidence_and_returns_three(monkeypatch):
     import scriptwriter
 
     monkeypatch.setenv("GROQ_API_KEY", "test-key")
     captured = {}
-
-    class Response:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            return False
-
-        def read(self, size=-1):
-            return b'{"choices":[{"message":{"content":"{\\"status\\":\\"ready\\",\\"reason\\":\\"\\",\\"opening_headline\\":\\"Rohit Gets Praise\\",\\"slides\\":[{\\"voiceover\\":\\"Rohit Sharma got praise.\\"},{\\"voiceover\\":\\"His experience was the key reason.\\"}],\\"titles\\":[\\"Rohit Sharma Gets Praise\\",\\"Why Rohit\\"],\\"description\\":\\"The story.\\",\\"hashtags\\":[\\"#Cricket\\"],\\"first_comment\\":\\"Thoughts?\\"}"}}]}'
+    generated = {
+        "status": "ready",
+        "reason": "",
+        "angles": [
+            make_angle("Rohit Gets Backing"),
+            make_angle("Gavaskar's Key Reason"),
+            make_angle("What Changed For India"),
+        ],
+    }
+    body = json.dumps({"choices": [{"message": {"content": json.dumps(generated)}}]})
 
     def fake_urlopen(req, timeout=45):
         captured["body"] = json.loads(req.data)
-        return Response()
+        return _Response(body)
 
     monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
-    scriptwriter.generate_script(
+    result = scriptwriter.suggest_editorial_angles(
+        {"title": "Indian legend praises Rohit Sharma"},
+        [{"title": "Source", "url": "https://example.com", "text": "Sunil Gavaskar praises Rohit Sharma."}],
+        "Cricket — India / Pakistan / Sri Lanka / Asia",
+    )
+    assert result == generated
+    prompt = captured["body"]["messages"][1]["content"]
+    assert "Your first job is editorial selection, not scriptwriting." in prompt
+    assert "exactly 3 genuinely different, research-backed editorial angles" in prompt
+    assert "Sunil Gavaskar praises Rohit Sharma." in prompt
+
+
+def test_editorial_angle_planner_preserves_previous_script_context(monkeypatch):
+    import scriptwriter
+
+    monkeypatch.setenv("GROQ_API_KEY", "test-key")
+    captured = {}
+    generated = {
+        "status": "ready",
+        "reason": "",
+        "angles": [
+            make_angle("Rohit Gets Backing"),
+            make_angle("Gavaskar's Key Reason"),
+            make_angle("What Changed For India"),
+        ],
+    }
+    body = json.dumps({"choices": [{"message": {"content": json.dumps(generated)}}]})
+
+    def fake_urlopen(req, timeout=45):
+        captured["body"] = json.loads(req.data)
+        return _Response(body)
+
+    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
+    scriptwriter.suggest_editorial_angles(
+        {"title": "Story"},
+        [{"title": "Source", "url": "https://example.com", "text": "A" * 400}],
+        "Sports",
+        previous=make_ready(headline="Old Script"),
+    )
+    prompt = captured["body"]["messages"][1]["content"]
+    assert "Previous script angle:" in prompt
+    assert "The three new angles must be materially different" in prompt
+
+
+def test_generation_prompt_contains_selected_editorial_angle(monkeypatch):
+    import scriptwriter
+
+    monkeypatch.setenv("GROQ_API_KEY", "test-key")
+    captured = {}
+    generated = {
+        "status": "ready",
+        "reason": "",
+        "opening_headline": "Rohit Gets Praise",
+        "slides": [
+            {"voiceover": "Rohit Sharma got praise."},
+            {"voiceover": "His experience was the key reason."},
+            {"voiceover": "The source connected it to India's batting."},
+            {"voiceover": "That assessment keeps his role central."},
+        ],
+        "titles": ["Rohit Sharma Gets Praise", "Why Rohit's Experience Matters"],
+        "description": "The story.",
+        "hashtags": ["#Cricket"],
+        "first_comment": "Thoughts?",
+    }
+    body = json.dumps({"choices": [{"message": {"content": json.dumps(generated)}}]})
+
+    def fake_urlopen(req, timeout=45):
+        captured["body"] = json.loads(req.data)
+        return _Response(body)
+
+    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
+    angle = make_angle()
+    result = scriptwriter.generate_script(
         {"title": "Indian legend praises Rohit Sharma"},
         [{"title": "Source", "url": "https://example.com", "text": "A named source identifies Sunil Gavaskar."}],
         "Cricket — India / Pakistan / Sri Lanka / Asia",
+        angle=angle,
     )
     prompt = captured["body"]["messages"][1]["content"]
-    assert "Write from scratch after understanding the full story." in prompt
-    assert "Use exactly 4 or 5 slides." in prompt
-    assert "There is no fixed slide count." not in prompt
-    assert "65 words or fewer" in prompt
-    assert "use their proper name" in prompt
-    assert "Approved YouTube title" not in prompt
+    assert "SELECTED EDITORIAL ANGLE — AUTHORITATIVE" in prompt
+    assert angle["title"] in prompt
+    assert "Do not replace it with the obvious event/result summary." in prompt
     assert "Cricket — India / Pakistan / Sri Lanka / Asia" in captured["body"]["messages"][0]["content"]
+    assert result["story_angle"] == angle
 
+
+def test_custom_angle_is_authoritative(monkeypatch):
+    import scriptwriter
+
+    monkeypatch.setenv("GROQ_API_KEY", "test-key")
+    captured = {}
+    generated = {
+        "status": "ready",
+        "reason": "",
+        "opening_headline": "Custom Story Focus",
+        "slides": [
+            {"voiceover": "The source revealed a key detail."},
+            {"voiceover": "That detail changed how the decision looked."},
+            {"voiceover": "The explanation appeared in the public remarks."},
+            {"voiceover": "It became the clearest part of the story."},
+        ],
+        "titles": ["The Key Detail", "Why The Detail Matters"],
+        "description": "The key story detail.",
+        "hashtags": ["#News"],
+        "first_comment": "What stands out to you?",
+    }
+    body = json.dumps({"choices": [{"message": {"content": json.dumps(generated)}}]})
+
+    def fake_urlopen(req, timeout=45):
+        captured["body"] = json.loads(req.data)
+        return _Response(body)
+
+    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
+    custom = "Focus on the public explanation rather than the final result."
+    result = scriptwriter.generate_script(
+        {"title": "Story"},
+        [{"title": "Source", "url": "https://example.com", "text": "The source contains a public explanation."}],
+        "News",
+        angle=custom,
+    )
+    assert custom in captured["body"]["messages"][1]["content"]
+    assert result["story_angle"] == custom
 
 
 def test_script_only_redo_requests_script_fields_only(monkeypatch):
@@ -225,37 +380,21 @@ def test_script_only_redo_requests_script_fields_only(monkeypatch):
             {"voiceover": "New ending."},
         ],
     }
-
-    body = json.dumps({
-        "choices": [{
-            "message": {
-                "content": json.dumps(generated),
-            }
-        }]
-    })
-
-    class Response:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            return False
-
-        def read(self, size=-1):
-            return body.encode()
+    body = json.dumps({"choices": [{"message": {"content": json.dumps(generated)}}]})
 
     def fake_urlopen(req, timeout=45):
         captured["body"] = json.loads(req.data)
-        return Response()
+        return _Response(body)
 
     monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
-
+    angle = make_angle("New editorial spine")
     result = scriptwriter.generate_script(
         {"title": "Story"},
         [{"title": "Source", "url": "https://example.com", "text": "Important source facts."}],
         "Cricket — India / Pakistan / Sri Lanka / Asia",
         previous=previous,
         script_only=True,
+        angle=angle,
     )
 
     schema = captured["body"]["response_format"]["json_schema"]["schema"]
@@ -267,5 +406,5 @@ def test_script_only_redo_requests_script_fields_only(monkeypatch):
     prompt = captured["body"]["messages"][1]["content"]
     assert "script-only redo" in prompt
     assert "Do not generate packaging fields" in prompt
-    assert result == generated
-
+    assert angle["title"] in prompt
+    assert result["story_angle"] == angle
