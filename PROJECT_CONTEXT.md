@@ -352,7 +352,7 @@ Subtitles, Visuals, Renderer and Upload are disabled. Preserve their existing fu
 - scriptwriter.py — source-first, desk-aware Scriptwriter with explicit three-choice editorial-angle selection, selected-angle-authoritative generation, Custom angle support and script redo angle regeneration.
 - app.py — Test dashboard through Audio; stage imports remain local; editorial angles are presented before each Scriptwriter generation; selected story_angle is retained through QC and Audio handoff.
 - audio.py — local Chatterbox narration for approved Scriptwriter slides; approved 8/10.
-- tests/test_topic_fetcher.py — Topic Fetcher tests.
+- tests/test_topic_fetcher.py — Topic Fetcher tests; the raw-GNews-URL test uses a current-time fixture so it cannot expire merely because the calendar date changes.
 - tests/test_scriptwriter.py — Scriptwriter and editorial-angle tests.
 - tests/test_audio.py — Audio dependency-loading and input validation tests.
 - .github/workflows/test.yml — deterministic CI.
