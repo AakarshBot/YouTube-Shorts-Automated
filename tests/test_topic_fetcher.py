@@ -76,7 +76,7 @@ def test_fetch_topics_uses_raw_gnews_urls(monkeypatch):
                 "link": "https://news.google.com/rss/articles/raw-selected-story",
                 "description": "GNews summary.",
                 "source": "Example",
-                "published": "Sun, 04 Oct 2026 10:00:00 GMT",
+                "published": datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT"),
             }])
 
         def get_news(self, query):

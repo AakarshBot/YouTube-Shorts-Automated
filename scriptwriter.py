@@ -40,15 +40,9 @@ OUTPUT_SCHEMA = {
                 "additionalProperties": False,
             },
         },
-        "titles": {
-            "type": "array",
-            "items": {"type": "string"},
-        },
+        "titles": {"type": "array", "items": {"type": "string"}},
         "description": {"type": "string"},
-        "hashtags": {
-            "type": "array",
-            "items": {"type": "string"},
-        },
+        "hashtags": {"type": "array", "items": {"type": "string"}},
         "first_comment": {"type": "string"},
     },
     "required": [
@@ -81,6 +75,31 @@ SCRIPT_OUTPUT_SCHEMA = {
         },
     },
     "required": ["status", "reason", "opening_headline", "slides"],
+    "additionalProperties": False,
+}
+
+ANGLE_OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "status": {"type": "string", "enum": ["ready", "needs_more_sources"]},
+        "reason": {"type": "string"},
+        "angles": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "description": {"type": "string"},
+                    "evidence_basis": {"type": "string"},
+                },
+                "required": ["title", "description", "evidence_basis"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["status", "reason", "angles"],
     "additionalProperties": False,
 }
 
@@ -188,7 +207,111 @@ def manual_sources(urls):
     return sources
 
 
-def generate_script(story, sources, desk, previous=None, source_stage="primary", script_only=False):
+def suggest_editorial_angles(story, sources, desk, source_stage="primary", previous=None):
+    if not sources:
+        raise ValueError("Editorial angles require source evidence.")
+
+    source_text = "\n\n".join(
+        f'SOURCE {i}: {item["title"]}\nURL: {item["url"]}\n{item["text"][:12000]}'
+        for i, item in enumerate(sources, 1)
+    )
+    stage_rule = {
+        "primary": "Use the primary source first. If it does not contain enough factual material for a substantive Short, return needs_more_sources.",
+        "automatic": "Use the primary source plus the automatically found related sources. If the combined evidence is still insufficient, return needs_more_sources.",
+        "manual": "Use every usable source provided here, including the manually supplied URLs. If the combined evidence is still insufficient, return needs_more_sources; do not invent or pad the story.",
+    }[source_stage]
+    previous_text = ""
+    if previous:
+        previous_text = f"""
+Previous script angle:
+{previous.get("story_angle", {})}
+Previous narration:
+{" ".join(slide["voiceover"] for slide in previous.get("slides", []))}
+
+The three new angles must be materially different from the previous story angle and narrative spine.
+"""
+
+    prompt = f"""Read the complete research packet for the selected {desk} desk.
+
+Topic Fetcher selection:
+{story["title"]}
+
+{source_text}
+
+{stage_rule}
+{previous_text}
+
+Your first job is editorial selection, not scriptwriting. Decide whether the evidence is rich enough to build a genuine Short. If it is not, return needs_more_sources with a concise reason and an empty angles array.
+
+When the evidence is enough, return exactly 3 genuinely different, research-backed editorial angles. These are choices for the human editor. They must materially change what the Short is about, not merely rephrase the same summary.
+
+Prefer different evidence-backed lenses such as:
+- the event or result itself
+- a statement, reaction or key remark when the sources contain a meaningful one
+- consequence or why the development matters
+- performance, process or how it happened
+- an unusual person or detail
+- a useful comparison or timeline
+- another clearly supported lens that gives the story a distinct editorial spine
+
+Do not force these categories. Use the three strongest choices for this specific story. Do not invent quotes, motives, consequences, criticism, controversy or interpretation that the sources do not support.
+
+For each angle:
+- title: 2–5 words, specific to this story, not a generic label such as "Why It Matters" or "Human Angle"
+- description: one short sentence explaining what the Short would focus on
+- evidence_basis: name the concrete source fact, remark, event, number or detail that makes this angle defensible
+
+The selected angle will become authoritative in the next Scriptwriter step, so each option must be strong enough to support a complete 4–5 slide Short.
+"""
+
+    key = os.getenv("GROQ_API_KEY")
+    if not key:
+        raise RuntimeError("GROQ_API_KEY is not set.")
+
+    payload = {
+        "model": MODEL,
+        "messages": [
+            {"role": "system", "content": f"You are an experienced editor for the {desk} desk. Source evidence controls factual claims."},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0.35,
+        "max_tokens": 1200,
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "editorial_angles",
+                "strict": True,
+                "schema": ANGLE_OUTPUT_SCHEMA,
+            },
+        },
+    }
+    req = Request(
+        GROQ_URL,
+        data=json.dumps(payload).encode(),
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
+        method="POST",
+    )
+    try:
+        with urlopen(req, timeout=45) as response:
+            data = json.load(response)
+        result = json.loads(data["choices"][0]["message"]["content"])
+        errors = validate_editorial_angles(result)
+        if errors:
+            raise RuntimeError(" · ".join(errors))
+        return result
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", "ignore")
+        raise RuntimeError(f"Groq request failed: {detail[:500]}") from exc
+    except (URLError, TimeoutError) as exc:
+        raise RuntimeError(f"Groq request failed: {exc}") from exc
+    except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("Groq returned an invalid structured response.") from exc
+
+
+def generate_script(story, sources, desk, previous=None, source_stage="primary", script_only=False, angle=None):
+    if not angle:
+        raise ValueError("An editorial angle must be selected before writing the Short.")
+
     source_text = "\n\n".join(
         f'SOURCE {i}: {item["title"]}\nURL: {item["url"]}\n{item["text"][:12000]}'
         for i, item in enumerate(sources, 1)
@@ -211,6 +334,15 @@ Build a genuinely different angle and narrative spine. Do not merely swap words 
 This is a script-only redo. Regenerate only the opening screen headline and slide-by-slide voiceover. The previous draft's packaging is intentionally preserved outside the writer. Do not create or change the YouTube titles, description, hashtags or first comment.
 """ if script_only else ""
 
+    if isinstance(angle, dict):
+        angle_text = (
+            f'Angle title: {angle.get("title", "").strip()}\n'
+            f'Angle description: {angle.get("description", "").strip()}\n'
+            f'Angle evidence basis: {angle.get("evidence_basis", "").strip()}'
+        )
+    else:
+        angle_text = f"Custom editorial angle: {str(angle).strip()}"
+
     prompt = f"""Create a factual YouTube Short for the selected {desk} desk from the supplied source material.
 
 Topic Fetcher selection:
@@ -221,14 +353,19 @@ Topic Fetcher selection:
 
 {stage_rule}
 
-Write from scratch after understanding the full story. The selected Topic Fetcher headline is the starting subject, not the finished script. Find the most interesting part of the story that genuinely works as a Short, choose one strongest angle, and build the narration around it. Do not simply expand, paraphrase or prolong the selected headline.
+SELECTED EDITORIAL ANGLE — AUTHORITATIVE:
+{angle_text}
+
+Build the entire narration around this editorial angle. Do not replace it with the obvious event/result summary. Use the angle to decide what belongs in the Short, how the facts are ordered and what the viewer should understand from the story.
+
+Write from scratch after understanding the full story. The selected Topic Fetcher headline is the starting subject, not the finished script. Do not simply expand, paraphrase or prolong the selected headline.
 {redo_instruction}
 
 Story rules:
 - Use the available source material as the factual authority.
 - You may synthesise information across sources when the sources support the same story.
 - Reorder facts however the story needs; do not mechanically follow article paragraphs.
-- Capture the important facts, context, names, teams, organisations, events, numbers and remarks needed to understand the story.
+- Capture the important facts, context, names, teams, organisations, events, numbers and remarks needed to understand the story through the selected editorial angle.
 - Use exactly 4 or 5 slides. Minimum 4, maximum 5.
 - Every slide must add important information. Do not create filler, repetition or artificial sentence splits just to reach 4 or 5 slides.
 - Slide 1 spoken narration must contain fewer than 14 words.
@@ -250,11 +387,11 @@ Opening screen headline:
 - One story-specific first/creator comment that invites a genuine response.
 - Packaging must describe the completed Short and introduce no unsupported facts.
 """ if not script_only else """For a script-only redo, return only status, reason, opening_headline and slides. Do not generate packaging fields.
-"""}
-When status is needs_more_sources:
+"""}When status is needs_more_sources:
 - Give a concise reason.
 - Return empty script fields; for normal generation also return empty packaging fields.
 """
+
     key = os.getenv("GROQ_API_KEY")
     if not key:
         raise RuntimeError("GROQ_API_KEY is not set.")
@@ -285,7 +422,10 @@ When status is needs_more_sources:
     try:
         with urlopen(req, timeout=45) as response:
             data = json.load(response)
-        return json.loads(data["choices"][0]["message"]["content"])
+        result = json.loads(data["choices"][0]["message"]["content"])
+        if result.get("status") == "ready":
+            result["story_angle"] = angle
+        return result
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", "ignore")
         raise RuntimeError(f"Groq request failed: {detail[:500]}") from exc
@@ -293,6 +433,39 @@ When status is needs_more_sources:
         raise RuntimeError(f"Groq request failed: {exc}") from exc
     except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
         raise RuntimeError("Groq returned an invalid structured response.") from exc
+
+
+def validate_editorial_angles(result):
+    if not isinstance(result, dict):
+        return ["Editorial angle output is not an object."]
+
+    status = result.get("status")
+    if status == "needs_more_sources":
+        return [] if str(result.get("reason", "")).strip() else ["A reason is required when more sources are needed."]
+    if status != "ready":
+        return ["Editorial angle status must be ready or needs_more_sources."]
+
+    angles = result.get("angles")
+    if not isinstance(angles, list) or len(angles) != 3:
+        return ["Exactly three editorial angles are required."]
+
+    errors = []
+    titles = []
+    for index, angle in enumerate(angles, 1):
+        if not isinstance(angle, dict):
+            errors.append(f"Editorial angle {index} is invalid.")
+            continue
+        title = str(angle.get("title", "")).strip()
+        description = str(angle.get("description", "")).strip()
+        evidence = str(angle.get("evidence_basis", "")).strip()
+        if not title or not description or not evidence:
+            errors.append(f"Editorial angle {index} must include a title, description and evidence basis.")
+        if not 2 <= len(re.findall(r"\b\S+\b", title)) <= 5:
+            errors.append(f"Editorial angle {index} title must contain 2–5 words.")
+        titles.append(re.sub(r"\s+", " ", title.lower()))
+    if len(set(titles)) != len(titles):
+        errors.append("Editorial angle titles must be unique.")
+    return errors
 
 
 def validate_script(result):
@@ -326,6 +499,8 @@ def validate_script(result):
         errors.append("Every slide needs spoken narration.")
     if len(re.findall(r"\b\S+\b", headline)) not in (3, 4):
         errors.append("Opening headline must contain exactly 3 or 4 words.")
+    if not result.get("story_angle"):
+        errors.append("A selected editorial angle is required.")
     voices = [slide["voiceover"].strip().lower() for slide in slides if isinstance(slide, dict) and slide.get("voiceover")]
     if len(set(voices)) < len(voices):
         errors.append("Slides must not be duplicated.")
