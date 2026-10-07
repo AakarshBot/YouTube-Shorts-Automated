@@ -4,13 +4,12 @@ import os
 import re
 
 MODEL = None
-MODEL_KIND = None
 ROOT = Path(__file__).resolve().parent
 OUTPUT_ROOT = ROOT / "generated_audio"
 REFERENCE = Path(os.getenv("AUDIO_REFERENCE", ROOT / "audio_reference.wav"))
 
 def generate_audio(version, run_number=1):
-    global MODEL, MODEL_KIND
+    global MODEL
     slides = version.get("slides") or []
     if not slides:
         raise ValueError("The approved Scriptwriter version has no slides.")
@@ -26,7 +25,6 @@ def generate_audio(version, run_number=1):
     kind = "turbo"
     if MODEL is None:
         MODEL = ChatterboxTurboTTS.from_pretrained(device=device)
-        MODEL_KIND = kind
 
     key = sha1(" ".join(slide["voiceover"] for slide in slides).encode()).hexdigest()[:12]
     output_dir = OUTPUT_ROOT / key
