@@ -1,6 +1,6 @@
 import json
 
-from scriptwriter import MAX_SLIDES, MAX_WORDS, MIN_SLIDES, validate_editorial_angles, validate_script
+from scriptwriter import EDITORIAL_FINGERPRINT, MAX_SLIDES, MAX_WORDS, MIN_SLIDES, REDO_GUIDANCE, validate_editorial_angles, validate_script
 
 
 def make_angle(title="Rohit Gets Backing"):
@@ -240,6 +240,7 @@ def test_editorial_angle_generation_uses_supplied_evidence_and_returns_three(mon
     prompt = captured["body"]["messages"][1]["content"]
     assert "Your first job is editorial selection, not scriptwriting." in prompt
     assert "exactly 3 genuinely different, research-backed editorial angles" in prompt
+    assert EDITORIAL_FINGERPRINT in prompt
     assert "Sunil Gavaskar praises Rohit Sharma." in prompt
 
 
@@ -269,10 +270,48 @@ def test_editorial_angle_planner_preserves_previous_script_context(monkeypatch):
         [{"title": "Source", "url": "https://example.com", "text": "A" * 400}],
         "Sports",
         previous=make_ready(headline="Old Script"),
+        redo_level=1,
     )
     prompt = captured["body"]["messages"][1]["content"]
     assert "Previous script angle:" in prompt
     assert "The three new angles must be materially different" in prompt
+    assert REDO_GUIDANCE[1] in prompt
+
+
+
+def test_redo_guidance_escalates_with_each_pass(monkeypatch):
+    import scriptwriter
+
+    monkeypatch.setenv("GROQ_API_KEY", "test-key")
+    captured = {}
+    generated = {
+        "status": "ready",
+        "reason": "",
+        "angles": [
+            make_angle("Rohit Gets Backing"),
+            make_angle("Gavaskar's Key Reason"),
+            make_angle("What Changed For India"),
+        ],
+    }
+    body = json.dumps({"choices": [{"message": {"content": json.dumps(generated)}}]})
+
+    def fake_urlopen(req, timeout=45):
+        captured["body"] = json.loads(req.data)
+        return _Response(body)
+
+    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
+    for level in (1, 2, 3):
+        scriptwriter.suggest_editorial_angles(
+            {"title": "Story"},
+            [{"title": "Source", "url": "https://example.com", "text": "A" * 400}],
+            "Sports",
+            previous=make_ready(headline="Old Script"),
+            redo_level=level,
+        )
+        prompt = captured["body"]["messages"][1]["content"]
+        assert REDO_GUIDANCE[level] in prompt
+        for earlier in range(1, level):
+            assert REDO_GUIDANCE[earlier] not in prompt
 
 
 def test_generation_prompt_contains_selected_editorial_angle(monkeypatch):
@@ -308,11 +347,14 @@ def test_generation_prompt_contains_selected_editorial_angle(monkeypatch):
         [{"title": "Source", "url": "https://example.com", "text": "A named source identifies Sunil Gavaskar."}],
         "Cricket — India / Pakistan / Sri Lanka / Asia",
         angle=angle,
+        redo_level=2,
     )
     prompt = captured["body"]["messages"][1]["content"]
     assert "SELECTED EDITORIAL ANGLE — AUTHORITATIVE" in prompt
     assert angle["title"] in prompt
     assert "Do not replace it with the obvious event/result summary." in prompt
+    assert EDITORIAL_FINGERPRINT in prompt
+    assert REDO_GUIDANCE[2] in prompt
     assert "Cricket — India / Pakistan / Sri Lanka / Asia" in captured["body"]["messages"][0]["content"]
     assert result["story_angle"] == angle
 

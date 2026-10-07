@@ -402,6 +402,7 @@ elif st.session_state.page == "scriptwriter":
                             source_stage=stage,
                             script_only=st.session_state.angle_mode == "redo",
                             angle=chosen_angle,
+                            redo_level=len(st.session_state.script_versions),
                         )
                         if result["status"] == "ready" and previous:
                             result["titles"] = list(previous["titles"])
@@ -579,7 +580,11 @@ elif st.session_state.page == "scriptwriter":
 
             if st.session_state.approved_version is None:
                 latest = st.session_state.script_versions[-1]
-                st.markdown("### Redo script")
+                redo_level = len(st.session_state.script_versions)
+                st.markdown(f"### Redo script · pass {redo_level}")
+                st.caption(
+                    "Every redo is stricter than the previous one: it must move the editorial spine, lead and structure further away from the last version."
+                )
                 redo_urls = st.text_area(
                     "Additional source URLs (optional)",
                     placeholder="Paste one or more URLs, one per line. Leave blank to use the current sources.",
@@ -587,7 +592,7 @@ elif st.session_state.page == "scriptwriter":
                 )
 
                 if st.session_state.angle_mode != "redo":
-                    if st.button("Build 3 new editorial angles", type="primary", use_container_width=True):
+                    if st.button("Build 3 stricter editorial angles", type="primary", use_container_width=True):
                         st.session_state.angle_error = None
                         with st.spinner("Finding three new editorial angles from the existing evidence…"):
                             try:
@@ -605,6 +610,7 @@ elif st.session_state.page == "scriptwriter":
                                     st.session_state.genre,
                                     source_stage=stage,
                                     previous=latest,
+                                    redo_level=redo_level,
                                 )
                                 errors = validate_editorial_angles(result)
                                 if errors:
@@ -621,7 +627,7 @@ elif st.session_state.page == "scriptwriter":
 
                 if st.session_state.angle_mode == "redo" and st.session_state.angle_reason and not st.session_state.editorial_angles:
                     st.warning(st.session_state.angle_reason)
-                    if st.button("Add sources and rebuild 3 angles", type="primary", use_container_width=True):
+                    if st.button("Add sources and rebuild 3 stricter angles", type="primary", use_container_width=True):
                         st.session_state.angle_error = None
                         with st.spinner("Reading the new sources and finding three new editorial angles…"):
                             try:
@@ -635,6 +641,7 @@ elif st.session_state.page == "scriptwriter":
                                     st.session_state.genre,
                                     source_stage="manual",
                                     previous=latest,
+                                    redo_level=redo_level,
                                 )
                                 errors = validate_editorial_angles(result)
                                 if errors:

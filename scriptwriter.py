@@ -15,6 +15,23 @@ MAX_WORDS = 65
 MIN_SLIDES = 4
 MAX_SLIDES = 5
 
+EDITORIAL_FINGERPRINT = """\
+Voice: clear, confident, conversational and informed. Sound like a human editor explaining something interesting, not a headline reader.
+Value: go beyond what happened by making the most interesting supported detail, connection, context or implication understandable.
+Material: prefer specific facts, numbers, named people, meaningful remarks, consequences, contrasts, process and useful context.
+Structure: use a real story hook, then build a tight explanation and payoff around the selected editorial angle.
+Discipline: no manufactured outrage, fake curiosity, generic filler, forced opinions or AI-sounding phrasing.
+Flexibility: this is a consistency target, not a template. Do not make every Short use the same hook, pacing or structure.
+Rejection: do not reject a story because it is ordinary or lacks a flashy hook. Ask for more sources only when the evidence cannot support a factual, substantive 4–5 slide Short.
+"""
+
+REDO_GUIDANCE = (
+    "",
+    "Redo pass 1 — be stricter than the original: move to a materially different editorial spine, use a different lead fact where the evidence supports it, and avoid repeating the previous opening premise or slide progression.",
+    "Redo pass 2 — be stricter again: do not reuse the previous angle's central emphasis, opening claim or evidence order unless the sources leave no defensible alternative. Prefer a less-obvious supported detail, reaction, consequence, comparison or process insight.",
+    "Redo pass 3+ — use the strongest difference rule: change the central question, evidence lead and narrative structure from the previous draft. Do not force novelty with cosmetic rewrites. If the evidence genuinely offers no defensible alternative treatment, return needs_more_sources rather than pretending a superficial rewrite is different.",
+)
+
 if not os.getenv("GROQ_API_KEY"):
     path = os.path.join(os.path.dirname(__file__), ".env")
     if os.path.isfile(path):
@@ -207,7 +224,7 @@ def manual_sources(urls):
     return sources
 
 
-def suggest_editorial_angles(story, sources, desk, source_stage="primary", previous=None):
+def suggest_editorial_angles(story, sources, desk, source_stage="primary", previous=None, redo_level=0):
     if not sources:
         raise ValueError("Editorial angles require source evidence.")
 
@@ -231,6 +248,8 @@ Previous narration:
 The three new angles must be materially different from the previous story angle and narrative spine.
 """
 
+    redo_guidance = REDO_GUIDANCE[min(max(redo_level, 0), len(REDO_GUIDANCE) - 1)]
+
     prompt = f"""Read the complete research packet for the selected {desk} desk.
 
 Topic Fetcher selection:
@@ -239,7 +258,12 @@ Topic Fetcher selection:
 {source_text}
 
 {stage_rule}
+
+CHANNEL EDITORIAL FINGERPRINT — CONSISTENCY TARGET, NOT A TEMPLATE:
+{EDITORIAL_FINGERPRINT}
+
 {previous_text}
+{redo_guidance}
 
 Your first job is editorial selection, not scriptwriting. Decide whether the evidence is rich enough to build a genuine Short. If it is not, return needs_more_sources with a concise reason and an empty angles array.
 
@@ -308,7 +332,7 @@ The selected angle will become authoritative in the next Scriptwriter step, so e
         raise RuntimeError("Groq returned an invalid structured response.") from exc
 
 
-def generate_script(story, sources, desk, previous=None, source_stage="primary", script_only=False, angle=None):
+def generate_script(story, sources, desk, previous=None, source_stage="primary", script_only=False, angle=None, redo_level=0):
     if not angle:
         raise ValueError("An editorial angle must be selected before writing the Short.")
 
@@ -334,6 +358,8 @@ Build a genuinely different angle and narrative spine. Do not merely swap words 
 This is a script-only redo. Regenerate only the opening screen headline and slide-by-slide voiceover. The previous draft's packaging is intentionally preserved outside the writer. Do not create or change the YouTube titles, description, hashtags or first comment.
 """ if script_only else ""
 
+    redo_guidance = REDO_GUIDANCE[min(max(redo_level, 0), len(REDO_GUIDANCE) - 1)]
+
     if isinstance(angle, dict):
         angle_text = (
             f'Angle title: {angle.get("title", "").strip()}\n'
@@ -352,6 +378,11 @@ Topic Fetcher selection:
 {previous_text}
 
 {stage_rule}
+
+CHANNEL EDITORIAL FINGERPRINT — CONSISTENCY TARGET, NOT A TEMPLATE:
+{EDITORIAL_FINGERPRINT}
+
+{redo_guidance}
 
 SELECTED EDITORIAL ANGLE — AUTHORITATIVE:
 {angle_text}

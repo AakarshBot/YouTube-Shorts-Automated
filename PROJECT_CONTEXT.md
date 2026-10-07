@@ -51,9 +51,26 @@ The selected Topic Fetcher headline is the starting subject. The selected Topic 
 ### Desk-aware editorial context
 
 - One shared Scriptwriter implementation serves Sports and every current non-sports Deep-Dive desk.
+- The selected Topic Fetcher desk/genre is passed directly into every Scriptwriter run so the editorial context matches the user's selection.
 - The Groq system instruction identifies the writer as an experienced editor for the selected desk/genre.
-- Desk awareness changes editorial context only; the source, angle, factual, slide, timing and packaging rules stay shared.
+- Desk awareness changes editorial context only; source, angle, factual, slide, timing and packaging rules remain shared.
 - Do not create separate Scriptwriter pipelines, wrappers, desk routers or desk-specific generation functions.
+
+### Channel editorial fingerprint
+
+The channel should feel like a smart, human-edited explainer: clear, confident, conversational and informed.
+
+Every Short should:
+- Go beyond "what happened" by making the most interesting supported detail, connection, context or implication understandable.
+- Prefer specific facts, numbers, named people, meaningful remarks, consequences, contrasts, process and useful context.
+- Use a real story hook, then build a tight explanation and payoff around the selected editorial angle.
+- Avoid manufactured outrage, fake curiosity, generic filler, forced opinions and AI-sounding phrasing.
+- Treat the fingerprint as a consistency target, not a fixed template. Hooks, pacing, evidence leads and structure should vary by story and angle.
+
+The rejection rule remains deliberately light:
+- Do not reject a story because it is ordinary or lacks a flashy hook.
+- Ask for more sources only when the evidence cannot support a factual, substantive 4–5 slide Short.
+- Manual QC remains the main editorial safety valve.
 
 ### Editorial architecture
 
@@ -68,15 +85,16 @@ Source evidence → three editorial angles → human selection → Scriptwriter 
 - Angle titles are 2–5 words, story-specific and unique.
 - The three choices must materially change the story's editorial spine, not merely rephrase the same summary.
 - Useful lenses can include the event/result, a meaningful statement or reaction, consequence/why it matters, performance/process, an unusual person or detail, comparison/timeline or another evidence-backed lens.
-- A statement/reaction lens should be included when the research contains a meaningful public statement or remark that can support it.
 - Do not force generic categories when the story does not support them.
 - Do not invent quotes, motives, consequences, criticism, controversy or interpretation.
 - The user can choose one of the three or enter a Custom angle.
 - The selected angle is authoritative for Scriptwriter. The writer must build the complete narration around it rather than reverting to the obvious event/result summary.
 - The selected angle is stored on each ready Scriptwriter result as story_angle and is retained through QC and downstream handoff.
-- The angle planner is used for initial generation and for Script Redo.
-- Redo generates three new angle choices using the current evidence and the previous draft context, so the user can deliberately change the story perspective rather than asking the writer for a vague rewrite.
+- The angle planner is used for initial generation and Script Redo.
+- Redo generates three new angle choices using current evidence and the previous draft context so the user can deliberately change the story perspective rather than asking for a vague rewrite.
+- Redo passes become progressively stricter. The first redo must materially change the editorial spine; later redos must move the lead evidence, central question and narrative structure further away from the previous draft.
 - The angle planner and Scriptwriter use the same collected evidence object. No duplicate article-reading or hidden research layer is introduced.
+- Do not add angle scoring, hook scores, source-coverage scores, critic passes, claim graphs, personas, automatic rewrite chains, title-ranking systems, provider routers or another editorial framework.
 
 ### Core editorial rule
 
@@ -201,9 +219,13 @@ First comment:
 ### Script redo
 
 - Available manually before approval.
-- Redo first creates exactly 3 new editorial-angle choices from the existing evidence and the previous script context.
-- The user can select one of those three or enter a Custom angle.
-- The previous script is supplied to the angle planner so the new choices are materially different.
+- Existing manual QC remains the simple rewrite path: every script field can be edited and approved unchanged.
+- Redo is the stronger regeneration path and always starts by creating exactly 3 new editorial-angle choices from the current evidence and the previous script.
+- Pass 1 must materially change the editorial spine, use a different lead fact where the evidence supports it, and avoid repeating the previous opening premise or slide progression.
+- Pass 2 is stricter: avoid the previous angle's central emphasis, opening claim and evidence order unless the sources leave no defensible alternative; prefer a less-obvious supported detail, reaction, consequence, comparison or process insight.
+- Pass 3 and later use the strongest difference rule: change the central question, evidence lead and narrative structure. Do not create cosmetic rewrites just to appear different.
+- Only after repeated redos, when the sources genuinely offer no defensible alternative treatment, the angle planner may return needs_more_sources instead of forcing novelty.
+- The user can select one of the three new angles or enter a Custom angle.
 - The user may optionally provide additional source URLs specifically for the redo, one per line. Those usable sources are added to the current evidence before the new angle planner run.
 - No automatic related-source search is performed just because the user clicks Redo.
 - After the user selects an angle, the writer receives the same evidence plus the selected angle and previous draft.
@@ -211,7 +233,7 @@ First comment:
 - The previous version's YouTube titles, description, hashtags and first/creator comment are carried forward unchanged by the dashboard, then remain editable in the new QC version.
 - story_angle is replaced with the selected redo angle.
 - Original and redo versions remain visible for manual QC.
-- The user can redo again before approval; each redo uses the latest version as the previous draft.
+- The user can redo again before approval; each successful redo uses the latest version as the previous draft and increases the redo strictness level.
 - If redo evidence is insufficient, the dashboard keeps the redo source-URL field available for another user-supplied source attempt.
 - Approved title/version is never supplied to story generation.
 
@@ -267,7 +289,7 @@ Python enforces only objective rules:
 11. Dashboard shows the completed Scriptwriter QC package in fixed editorial order.
 12. Every QC editorial field remains editable before approval.
 13. Approval validates the edited package before it becomes the Audio input.
-14. Before approval, Redo Script first presents three new editorial-angle choices; the user then generates the new script from the chosen angle.
+14. Before approval, Redo Script presents three new editorial-angle choices; each redo pass is stricter than the previous pass, and the user then generates the new script from the chosen angle.
 15. Redo preserves previous packaging unchanged until the user edits it in the new QC version.
 16. Same-page actions render from state mutated during the current Streamlit interaction; no redundant second rerun is added just to refresh a picker or generation result.
 
@@ -349,7 +371,7 @@ Subtitles, Visuals, Renderer and Upload are disabled. Preserve their existing fu
 
 - PROJECT_CONTEXT.md — current source of truth.
 - topic_fetcher.py — completed Topic Fetcher.
-- scriptwriter.py — source-first, desk-aware Scriptwriter with explicit three-choice editorial-angle selection, selected-angle-authoritative generation, Custom angle support and script redo angle regeneration.
+- scriptwriter.py — source-first, desk-aware Scriptwriter with the channel editorial fingerprint, explicit three-choice editorial-angle selection, selected-angle-authoritative generation, Custom angle support and progressively stricter script redo passes.
 - app.py — Test dashboard through Audio; stage imports remain local; editorial angles are presented before each Scriptwriter generation; selected story_angle is retained through QC and Audio handoff.
 - audio.py — local Chatterbox narration for approved Scriptwriter slides; approved 8/10.
 - tests/test_topic_fetcher.py — Topic Fetcher tests; the raw-GNews-URL test uses a current-time fixture so it cannot expire merely because the calendar date changes.
