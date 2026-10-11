@@ -117,7 +117,7 @@ Status: STEP 2 COMPLETE. The implementation and regression tests are committed; 
 
 ### Step 3 — Scriptwriter real-story and multi-desk validation
 
-Status: IN PROGRESS. The automated component is verified: Python compilation passed and all 48 tests passed in 3.83 seconds on commit `192fcf3024871fd1a3aa4a35845710aa6b702566`. [GitHub Actions run](https://github.com/AakarshBot/YouTube-Shorts-Automated/actions/runs/38170661262 ). Scriptwriter remains 6/10 because live generated editorial output has not been manually reviewed.
+Status: IN PROGRESS. The automated component is verified: Python compilation passed and all 48 tests passed in 3.83 seconds on commit `192fcf3024871fd1a3aa4a35845710aa6b702566`. [GitHub Actions run](https://github.com/AakarshBot/YouTube-Shorts-Automated/actions/runs/38170661262). Scriptwriter remains 6/10 because live generated editorial output has not been manually reviewed.
 
 - Run representative stories from regional cricket, global cricket, niche sports, News/Politics, Technology, Entertainment, Business & Finance, Gaming, and Science & Space through the existing Test workflow.
 - Inspect source evidence, angle choices, generated narration, titles and QC fields—not only schema validity.
