@@ -127,14 +127,18 @@ def test_editorial_angle_titles_must_be_unique_and_two_to_five_words():
 
 
 class _Response:
-    def __init__(self, body):
+    def __init__(self, body, final_url=None):
         self.body = body.encode()
+        self.final_url = final_url
 
     def __enter__(self):
         return self
 
     def __exit__(self, *args):
         return False
+
+    def geturl(self):
+        return self.final_url
 
     def read(self, size=-1):
         return self.body
@@ -168,7 +172,8 @@ def test_gnews_summary_is_used_as_fallback(monkeypatch):
         "url": "https://example.com/story",
         "description": "GNews summary.",
     })
-    assert text == "Story headline. GNews summary."
+    assert text.startswith("[GNEWS DESCRIPTION FALLBACK — ARTICLE TEXT UNAVAILABLE]")
+    assert text.endswith("Story headline. GNews summary.")
 
 
 def test_invalid_source_url_uses_summary_without_request(monkeypatch):
@@ -183,7 +188,8 @@ def test_invalid_source_url_uses_summary_without_request(monkeypatch):
         "url": "not-a-url",
         "description": "GNews summary.",
     })
-    assert text == "Story headline. GNews summary."
+    assert text.startswith("[GNEWS DESCRIPTION FALLBACK — ARTICLE TEXT UNAVAILABLE]")
+    assert text.endswith("Story headline. GNews summary.")
 
 
 def test_related_sources_use_existing_gnews(monkeypatch):
@@ -242,6 +248,8 @@ def test_editorial_angle_generation_uses_supplied_evidence_and_returns_three(mon
     assert "exactly 3 genuinely different, research-backed editorial angles" in prompt
     assert EDITORIAL_FINGERPRINT in prompt
     assert "Sunil Gavaskar praises Rohit Sharma." in prompt
+    assert "Treat marked text as limited evidence." in prompt
+    assert "[GNEWS DESCRIPTION FALLBACK — ARTICLE TEXT UNAVAILABLE]" in prompt
 
 
 def test_editorial_angle_planner_preserves_previous_script_context(monkeypatch):
@@ -354,6 +362,8 @@ def test_generation_prompt_contains_selected_editorial_angle(monkeypatch):
     assert angle["title"] in prompt
     assert "Do not replace it with the obvious event/result summary." in prompt
     assert EDITORIAL_FINGERPRINT in prompt
+    assert "[GNEWS DESCRIPTION FALLBACK — ARTICLE TEXT UNAVAILABLE]" in prompt
+    assert "Treat marked text as limited evidence." in prompt
     assert REDO_GUIDANCE[2] in prompt
     assert "Cricket — India / Pakistan / Sri Lanka / Asia" in captured["body"]["messages"][0]["content"]
     assert result["story_angle"] == angle
@@ -450,3 +460,47 @@ def test_script_only_redo_requests_script_fields_only(monkeypatch):
     assert "Do not generate packaging fields" in prompt
     assert angle["title"] in prompt
     assert result["story_angle"] == angle
+
+
+
+def test_unresolved_google_news_page_is_not_accepted_as_article_text(monkeypatch):
+    import scriptwriter
+
+    url = "https://news.google.com/rss/articles/raw-story-token"
+    story = {
+        "title": "Story headline",
+        "url": url,
+        "description": "A short feed description.",
+    }
+
+    def fake_urlopen(req, timeout=12):
+        landing_page = "<html><article>" + ("Google News page furniture. " * 30) + "</article></html>"
+        return _Response(landing_page, final_url=url)
+
+    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
+    text = scriptwriter.article_text(story)
+
+    assert text.startswith("[GNEWS DESCRIPTION FALLBACK — ARTICLE TEXT UNAVAILABLE]")
+    assert "Google News page furniture" not in text
+    assert story["url"] == url
+
+
+def test_google_news_http_redirect_preserves_exact_publisher_url(monkeypatch):
+    import scriptwriter
+
+    publisher_url = "https://Example.com/Story/ABC?Param=Value"
+    story = {
+        "title": "Story headline",
+        "url": "https://news.google.com/rss/articles/raw-story-token",
+        "description": "A short feed description.",
+    }
+
+    def fake_urlopen(req, timeout=12):
+        article = "<html><article>" + ("Important publisher article fact. " * 30) + "</article></html>"
+        return _Response(article, final_url=publisher_url)
+
+    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
+    text = scriptwriter.article_text(story)
+
+    assert text.startswith("Important publisher article fact.")
+    assert story["url"] == publisher_url

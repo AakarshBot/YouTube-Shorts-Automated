@@ -50,16 +50,17 @@ Work on one step at a time. Do not jump ahead or broaden the scope without a con
 
 ### Step 1 — Topic Fetcher reliability: selected-source resolution and Search More
 
-This is the next task. Inspect the exact code and add focused, deterministic tests before making the smallest direct code change necessary.
+Status: the targeted source-reading and repeated-search changes and deterministic tests are included in this commit; GitHub Actions verification is pending.
+
+The scope is limited to selected-source/article-text reliability and successive Search More batches within the currently fetched RSS result pool. No new dependencies, news providers or code wrappers are introduced.
 
 #### A. Selected Google News URL and source-reading reliability
 
 - Topic Fetcher must not resolve URLs during bulk search. Bulk fetching is performance-sensitive, and article reading should only begin after the user chooses a story.
-- The current dashboard calls GNews resolve_url() when the user selects a headline. The Scriptwriter's article_text() then requests the selected URL directly and falls back to the Topic Fetcher GNews description when article extraction fails.
-- GNews resolve_url() relies on its optional Playwright integration to resolve Google News redirect URLs. If Playwright is unavailable, it can return the original Google News URL unchanged.
-- The current lightweight requirements.txt lists Streamlit and GNews, not Playwright. Therefore a clean installation does not guarantee the selected headline is resolved to a publisher URL. This is a portability risk to test, not proof that every local run fails.
-- Tests must distinguish a genuinely resolved publisher URL and readable article text from an unresolved Google News URL or a summary fallback. Do not silently treat a short summary as if full article text had been read.
-- The existing description fallback remains allowed when it is the only evidence available, but the Scriptwriter must not misrepresent it as full article research. If there is not enough evidence to support a substantive Short, use the existing needs_more_sources flow.
+- The dashboard calls GNews resolve_url() only after the user selects a headline. GNews resolve_url() relies on optional Playwright; without it, the Google News URL can remain unresolved. The lightweight requirements.txt lists Streamlit and GNews, not Playwright, so a clean install does not guarantee a publisher URL.
+- article_text() checks the final response URL from urlopen(). If an unresolved Google News URL redirects to a publisher page, it records that exact publisher URL on the selected story and can use readable article text. If the final response remains on news.google.com, Google News page content is not accepted as publisher article text.
+- When article extraction fails or a Google News landing page remains unresolved, article_text() labels the permitted title + GNews-description fallback with [GNEWS DESCRIPTION FALLBACK — ARTICLE TEXT UNAVAILABLE]. The angle planner and script-generation prompt explicitly treat this as limited evidence, not a complete article.
+- Tests distinguish unresolved Google News content, a redirect to an exact publisher URL, readable article text, and a labelled summary fallback.
 - Keep the selected publisher URL exactly as resolved. Do not lowercase it or strip query parameters.
 - Do not pass the already-normalised Topic Fetcher headline object through GNews process_url(); it expects a raw GNews feed item, not the current handoff object.
 - Do not add Playwright, another news service, a custom Google News client, copied GNews code or another dependency without demonstrating necessity and obtaining explicit approval.
@@ -88,6 +89,8 @@ Do not begin Step 2 until Step 1 is reported complete and the user says “yes, 
 After Step 1 is complete and verified:
 
 - The current Topic Fetcher has desk-focused query configurations, freshness filtering, utility/reference-page filters, exact URL deduplication and a title-phrase grouping heuristic for India cricket. Most results are then ordered by publication time.
+- Search More grows its requested feed-result cap with the already-seen URL count up to 100 results per query. India cricket keeps the 100-result cap instead of dropping to 40 on subsequent searches.
+- The RSS path has no explicit page token or offset. Sequential searches can move through the currently available result pool, but cannot promise unlimited results. Broader query diversity after that pool is exhausted remains a Step 2 task.
 - Exact URL deduplication does not collapse the same story published under different URLs. Phrase-based grouping can also merge unrelated stories or split paraphrased coverage of the same event.
 - Final-Shorts has more developed event-clustering, fuzzy duplicate handling, exclusion and Search More tests. Learn from those principles, but do not copy its full implementation.
 - Add lightweight event-level deduplication where it materially improves the human-selectable list, including across repeated Search More batches.
@@ -118,9 +121,13 @@ After Topic Fetcher steps are completed:
 - Every selectable headline carries its title, stored Google News result URL, publisher, published_at timestamp and GNews description.
 - Bulk search must not resolve individual article URLs.
 - Resolve/read a story only after the user selects it.
+- If GNews resolve_url() leaves a news.google.com URL unchanged, article_text() checks the final HTTP response URL. A publisher redirect can yield readable article text and updates the selected story to that exact URL; a response that remains on news.google.com is not treated as article-body evidence.
+- Summary fallback is labelled in the returned text so the LLM can distinguish it from a full article. The angle planner and script-generation prompts treat it as limited evidence and must request more sources rather than invent missing details.
 - Preserve resolved publisher URL spelling and query parameters exactly.
 - Do not change the Topic Fetcher handoff structure as a side effect of an unrelated improvement.
-- Do not introduce Playwright or another dependency merely to resolve URLs until the need and acceptable approach have been established.
+- Do not introduce Playwright or another dependency merely to resolve URLs.
+- Search More increases its result cap to 100 based on the already-seen URL count; India cricket always requests up to 100. Seen URLs are filtered before selection, allowing successive batches through the available RSS pool without claiming unlimited pagination.
+- The current RSS path still lacks a page token or offset. Broader query diversity after the feed pool is exhausted is deferred to Step 2.
 - The India cricket topic grouping currently uses repeated title phrases as an approximation of player/event grouping. It is not guaranteed to represent true event identity; Step 2 is where that is addressed.
 
 ## Scriptwriter — specification locked, implementation under validation — 6/10
@@ -385,8 +392,8 @@ Stage 3 is approved after successful local generation and manual QC. Narration o
 - scriptwriter.py — source-first, desk-aware Scriptwriter with the editorial fingerprint, explicit three-choice angle planning, selected-angle-authoritative writing, Custom angle support, and progressively stricter script redo passes.
 - app.py — Test dashboard through Audio. Stage imports are local; editorial angles are presented before each Scriptwriter generation; selected story_angle is retained through QC and Audio handoff.
 - audio.py — local Chatterbox narration for approved Scriptwriter slides.
-- tests/test_topic_fetcher.py — deterministic Topic Fetcher tests. Existing raw-GNews-URL test uses a current-time fixture so it cannot expire merely because the calendar date changes. Step 1 must extend coverage for selected-source resolution and Search More/exclude-seen behaviour.
-- tests/test_scriptwriter.py — Scriptwriter and editorial-angle tests. Multi-desk real-story output review remains outstanding.
+- tests/test_topic_fetcher.py — deterministic Topic Fetcher tests, now including multiple Search More batches against a mocked 100-result feed pool and asserting that already-seen URLs are excluded.
+- tests/test_scriptwriter.py — Scriptwriter and editorial-angle tests, now including an unresolved Google News landing page, a redirect to an exact publisher URL and labelled summary fallback. Multi-desk real-story output review remains outstanding.
 - tests/test_audio.py — Audio dependency-loading and input-validation tests.
 - .github/workflows/test.yml — deterministic CI.
 - requirements.txt — lightweight dependencies; Chatterbox is installed manually in the local environment.
@@ -396,5 +403,5 @@ Stage 3 is approved after successful local generation and manual QC. Narration o
 
 - CI checks Python compilation and runs pytest.
 - CI must use deterministic mocks for Topic Fetcher and Scriptwriter source-handling tests; do not require live GNews results or a minimum number of current stories.
-- The current observed CI result is 30 tests passed on 7 October 2026. This is historical baseline evidence, not a claim about a commit made after that run.
+- The baseline before Step 1 code changes was 30 tests passed on 7 October 2026. Source-handling and repeated-search regression tests are added in this commit; verification for this commit is pending.
 - Do not merge a red commit.

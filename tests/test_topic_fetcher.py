@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import re
 from types import SimpleNamespace
 
 import topic_fetcher
@@ -91,3 +92,62 @@ def test_source_url_is_not_lowercased_or_stripped():
     from topic_fetcher import _url
     url = "https://Example.com/Story/ABC?Param=Value"
     assert _url(url) == "https://Example.com/Story/ABC?Param=Value"
+
+
+
+def test_search_more_returns_new_batches_until_the_feed_pool_is_exhausted(monkeypatch):
+    from urllib.parse import unquote
+
+    limits = []
+
+    class FakeGNews:
+        def __init__(self, **kwargs):
+            self.max_results = kwargs["max_results"]
+            limits.append(self.max_results)
+
+        def _ceid(self):
+            return "&hl=en&gl=IN&ceid=IN:en"
+
+        def _fetch_feed(self, url):
+            query = unquote(url.split("/search?q=", 1)[1].split("&hl=", 1)[0])
+            slug = re.sub(r"[^a-z0-9]+", "-", query.lower()).strip("-")[:36]
+            published = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")
+            return SimpleNamespace(entries=[
+                {
+                    "title": f"Fresh development {slug} item {index}",
+                    "link": f"https://example.com/{slug}/{index}",
+                    "description": "A new development with concrete details.",
+                    "source": "Example publisher",
+                    "published": published,
+                }
+                for index in range(1, 101)
+            ])
+
+    monkeypatch.setattr(topic_fetcher, "GNews", FakeGNews)
+
+    def urls(results):
+        return {
+            headline["url"]
+            for topic in results
+            for headline in topic["headlines"]
+        }
+
+    first = topic_fetcher.fetch_topics("News")
+    first_urls = urls(first)
+    assert len(first_urls) == 80
+    assert set(limits) == {20}
+
+    limits.clear()
+    second = topic_fetcher.fetch_topics("News", exclude_urls=first_urls)
+    second_urls = urls(second)
+    assert len(second_urls) == 80
+    assert first_urls.isdisjoint(second_urls)
+    assert set(limits) == {100}
+
+    limits.clear()
+    third = topic_fetcher.fetch_topics("News", exclude_urls=first_urls | second_urls)
+    third_urls = urls(third)
+    assert len(third_urls) == 80
+    assert first_urls.isdisjoint(third_urls)
+    assert second_urls.isdisjoint(third_urls)
+    assert set(limits) == {100}

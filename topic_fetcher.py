@@ -225,7 +225,13 @@ def fetch_topics(genre, exclude_urls=()):
         news = GNews(
             language="en",
             country=country,
-            max_results=100 if genre == "Cricket — India / Pakistan / Sri Lanka / Asia" and label == "India" and not blocked_urls else 20 if not blocked_urls else 40,
+            max_results=(
+                100
+                if genre == "Cricket — India / Pakistan / Sri Lanka / Asia" and label == "India"
+                else min(100, max(40, len(blocked_urls) + 20))
+                if blocked_urls
+                else 20
+            ),
             max_retries=1,
         )
         encoded = "%20".join(query.split(" "))

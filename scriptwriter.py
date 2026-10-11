@@ -153,11 +153,15 @@ def article_text(story):
     if not story or not story.get("url"):
         raise ValueError("Selected story has no source URL.")
 
-    if _valid_url(story["url"]):
+    target = str(story["url"])
+    if _valid_url(target):
         try:
-            req = Request(story["url"], headers={"User-Agent": "Mozilla/5.0"})
+            req = Request(target, headers={"User-Agent": "Mozilla/5.0"})
             with urlopen(req, timeout=12) as response:
+                resolved_url = response.geturl() or target
                 raw = response.read(300000).decode("utf-8", "ignore")
+            resolved_host = (urlparse(resolved_url).hostname or "").lower()
+            requested_host = (urlparse(target).hostname or "").lower()
             article = re.search(r"<article\b.*?</article>", raw, flags=re.I | re.S)
             parser = _Text()
             parser.feed(
@@ -169,17 +173,20 @@ def article_text(story):
                 )
             )
             text = _clean(" ".join(parser.parts))
-            if len(text) >= 300:
+            if requested_host == "news.google.com" and resolved_host and resolved_host != "news.google.com":
+                story["url"] = resolved_url
+            if len(text) >= 300 and resolved_host != "news.google.com":
                 return text[:20000]
         except (HTTPError, URLError, TimeoutError, ValueError):
             pass
 
     summary = _clean(story.get("description"))
     if summary:
-        return f'{_clean(story.get("title"))}. {summary}'
+        return (
+            "[GNEWS DESCRIPTION FALLBACK — ARTICLE TEXT UNAVAILABLE]\n"
+            f'{_clean(story.get("title"))}. {summary}'
+        )
     raise RuntimeError("This source has no readable article text or usable summary.")
-
-
 def find_related_sources(story):
     news = GNews(language="en", max_results=5, max_retries=1)
     rows = news.get_news(story["title"])
@@ -258,6 +265,11 @@ Topic Fetcher selection:
 {source_text}
 
 {stage_rule}
+
+SOURCE QUALITY:
+- Any source text marked [GNEWS DESCRIPTION FALLBACK — ARTICLE TEXT UNAVAILABLE] contains only the headline and feed description, not the article body.
+- Treat marked text as limited evidence. Do not infer details that are not present.
+- If the fallback and all other supplied sources do not support a substantive, factual Short from the selected angle, return needs_more_sources.
 
 CHANNEL EDITORIAL FINGERPRINT — CONSISTENCY TARGET, NOT A TEMPLATE:
 {EDITORIAL_FINGERPRINT}
@@ -378,6 +390,11 @@ Topic Fetcher selection:
 {previous_text}
 
 {stage_rule}
+
+SOURCE QUALITY:
+- Any source text marked [GNEWS DESCRIPTION FALLBACK — ARTICLE TEXT UNAVAILABLE] contains only the headline and feed description, not the article body.
+- Treat marked text as limited evidence. Do not infer details that are not present.
+- If the fallback and all other supplied sources do not support a substantive, factual Short from the selected angle, return needs_more_sources.
 
 CHANNEL EDITORIAL FINGERPRINT — CONSISTENCY TARGET, NOT A TEMPLATE:
 {EDITORIAL_FINGERPRINT}
