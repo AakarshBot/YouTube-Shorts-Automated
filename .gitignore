@@ -1,3 +1,5 @@
 generated_audio/
 audio_reference.wav
 .env
+.venv/
+__pycache__/

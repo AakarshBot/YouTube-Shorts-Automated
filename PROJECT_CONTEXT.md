@@ -117,7 +117,7 @@ Status: STEP 2 COMPLETE. The implementation and regression tests are committed; 
 
 ### Step 3 — Scriptwriter real-story and multi-desk validation
 
-Status: AUTOMATED PREPARATION COMPLETE; READY FOR MANUAL LIVE-MODEL REVIEW. Dashboard recovery, source handoff, QC changes and desk fixtures aligned to the actual dashboard handoff passed Python compilation and 54 tests in 2.73 seconds on commit `dff5f0929421a89b7c735be4e6174cc7e22496b1`. [Code/test run 143](https://github.com/AakarshBot/YouTube-Shorts-Automated/actions/runs/38171646205). The root `.env` API-key file is now ignored and no `.env` file is tracked. The `.gitignore` and context update passed Python compilation and 54 tests in 3.09 seconds on commit `c4e3709048e01c40ce190b79ef0f5bd6e67a21eb`. [Safety/context run 144](https://github.com/AakarshBot/YouTube-Shorts-Automated/actions/runs/38171779241). Scriptwriter remains 6/10 because live generated editorial output has not been manually reviewed.
+Status: AUTOMATED PREPARATION COMPLETE; READY FOR MANUAL LIVE-MODEL REVIEW. Dashboard recovery, source handoff, QC changes and desk fixtures aligned to the actual dashboard handoff passed Python compilation and 54 tests in 2.73 seconds on commit `dff5f0929421a89b7c735be4e6174cc7e22496b1`. [Code/test run 143](https://github.com/AakarshBot/YouTube-Shorts-Automated/actions/runs/38171646205). The root `.env` API-key file is ignored and no `.env` file is tracked. The `.gitignore` also excludes `.venv/` and `__pycache__/` so normal local setup does not clutter `git status`; this ignore-only update is being verified with GitHub Actions before proceeding. Scriptwriter remains 6/10 because live generated editorial output has not been manually reviewed.
 
 - Run representative stories from regional cricket, global cricket, niche sports, News/Politics, Technology, Entertainment, Business & Finance, Gaming, and Science & Space through the existing Test workflow.
 - Inspect source evidence, angle choices, generated narration, titles and QC fields—not only schema validity.
@@ -423,7 +423,7 @@ Stage 3 is approved after successful local generation and manual QC. Narration o
 - tests/test_audio.py — Audio dependency-loading and input-validation tests.
 - .github/workflows/test.yml — deterministic CI.
 - requirements.txt — lightweight dependencies; Chatterbox is installed manually in the local environment.
-- .gitignore — excludes the root `.env` API-key file, local Audio outputs and narrator reference audio.
+- .gitignore — excludes the root `.env` API-key file, local `.venv/` virtual environment, `__pycache__/` Python bytecode cache, local Audio outputs and narrator reference audio.
 
 ## CI contract
 
