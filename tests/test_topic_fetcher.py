@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import re
 from types import SimpleNamespace
 
@@ -114,7 +114,7 @@ def test_search_more_returns_new_batches_until_the_feed_pool_is_exhausted(monkey
             published = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")
             return SimpleNamespace(entries=[
                 {
-                    "title": f"Fresh development {slug} item {index}",
+                    "title": f"Organisation{index} launches product after new milestone",
                     "link": f"https://example.com/{slug}/{index}",
                     "description": "A new development with concrete details.",
                     "source": "Example publisher",
@@ -151,3 +151,107 @@ def test_search_more_returns_new_batches_until_the_feed_pool_is_exhausted(monkey
     assert first_urls.isdisjoint(third_urls)
     assert second_urls.isdisjoint(third_urls)
     assert set(limits) == {100}
+
+
+
+def _topic_row(title, hours=1, publisher="Publisher A", url=None):
+    return {
+        "title": title,
+        "url": url or f"https://example.com/{re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')}",
+        "description": "",
+        "publisher": publisher,
+        "published_at": datetime.now(timezone.utc) - timedelta(hours=hours),
+    }
+
+
+def test_duplicate_event_reports_collapse_but_different_events_for_same_person_survive():
+    reports = [
+        _topic_row(
+            "Shubman Gill ruled out of ODI after fresh injury setback",
+            publisher="Publisher A",
+            url="https://example.com/report-a",
+        ),
+        _topic_row(
+            "Fresh injury blow leaves Shubman Gill out of the ODI",
+            publisher="Publisher B",
+            url="https://example.com/report-b",
+            hours=2,
+        ),
+        _topic_row(
+            "Shubman Gill signs new franchise endorsement deal",
+            publisher="Publisher C",
+            url="https://example.com/report-c",
+            hours=3,
+        ),
+    ]
+
+    chosen = topic_fetcher._rank_and_deduplicate(reports)
+
+    assert len(chosen) == 2
+    assert sum("injury" in row["title"].lower() or "ruled out" in row["title"].lower() for row in chosen) == 1
+    assert any("endorsement deal" in row["title"].lower() for row in chosen)
+
+
+def test_different_stories_with_generic_boilerplate_are_not_collapsed():
+    rows = [
+        _topic_row("Alpha player appointed as coach", url="https://example.com/alpha"),
+        _topic_row("Beta player appointed as coach", url="https://example.com/beta"),
+        _topic_row("Gamma player appointed as coach", url="https://example.com/gamma"),
+    ]
+
+    assert len(topic_fetcher._rank_and_deduplicate(rows)) == 3
+
+
+def test_story_ranking_can_put_specific_development_ahead_of_newer_generic_headline():
+    rows = [
+        _topic_row(
+            "Team makes latest update today",
+            publisher="Publisher A",
+            url="https://example.com/generic",
+            hours=1,
+        ),
+        _topic_row(
+            "Veteran runner breaks national record after remarkable comeback from injury",
+            publisher="Publisher B",
+            url="https://example.com/record",
+            hours=20,
+        ),
+    ]
+
+    chosen = topic_fetcher._rank_and_deduplicate(rows)
+
+    assert chosen[0]["url"] == "https://example.com/record"
+
+
+def test_story_ranking_spreads_candidates_across_publishers_when_scores_are_close():
+    rows = [
+        _topic_row("Aster Labs launches quantum chip", publisher="Outlet A", url="https://a.example/1"),
+        _topic_row("Boreal Labs launches battery system", publisher="Outlet A", url="https://a.example/2"),
+        _topic_row("Cinder Labs launches cooling system", publisher="Outlet A", url="https://a.example/3"),
+        _topic_row("Delta Labs launches satellite payload", publisher="Outlet B", url="https://b.example/1"),
+        _topic_row("Ember Labs launches medical scanner", publisher="Outlet B", url="https://b.example/2"),
+        _topic_row("Frost Labs launches fuel engine", publisher="Outlet B", url="https://b.example/3"),
+    ]
+    published = datetime.now(timezone.utc) - timedelta(hours=1)
+    for row in rows:
+        row["published_at"] = published
+
+    chosen = topic_fetcher._rank_and_deduplicate(rows)
+
+    assert chosen[0]["publisher"] == "Outlet A"
+    assert chosen[1]["publisher"] == "Outlet B"
+
+
+def test_source_suffix_is_ignored_when_comparing_duplicate_events():
+    first = _topic_row(
+        "Shubman Gill ruled out of ODI after fresh injury setback - Publisher A",
+        publisher="Publisher A",
+        url="https://example.com/one",
+    )
+    second = _topic_row(
+        "Fresh injury blow leaves Shubman Gill out of the ODI | Publisher B",
+        publisher="Publisher B",
+        url="https://example.com/two",
+    )
+
+    assert topic_fetcher._same_story_event(first, second)

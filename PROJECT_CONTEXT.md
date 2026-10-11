@@ -89,23 +89,23 @@ The selected-source and Search More reliability changes are implemented and veri
 
 Known limitation retained for Step 2: the current RSS query path has no explicit page token or offset and the result pool is finite. Search More advances through that pool up to the cap; it does not guarantee unlimited results. Improving query diversity after the current pool is exhausted remains part of Step 2.
 
-Do not begin Step 2 until the user says “yes, continue”.
+Step 2 is active after the user approved proceeding.
 ### Step 2 — Topic discovery quality: event duplicates and story prioritisation
 
-After Step 1 is complete and verified:
+Status: the implementation and deterministic regression tests are included in this commit; GitHub Actions verification is pending.
 
-- The current Topic Fetcher has desk-focused query configurations, freshness filtering, utility/reference-page filters, exact URL deduplication and a title-phrase grouping heuristic for India cricket. Most results are then ordered by publication time.
-- Search More grows its requested feed-result cap with the already-seen URL count up to 100 results per query. India cricket keeps the 100-result cap instead of dropping to 40 on subsequent searches.
-- The RSS path has no explicit page token or offset. Sequential searches can move through the currently available result pool, but cannot promise unlimited results. Broader query diversity after that pool is exhausted remains a Step 2 task.
-- Exact URL deduplication does not collapse the same story published under different URLs. Phrase-based grouping can also merge unrelated stories or split paraphrased coverage of the same event.
-- Final-Shorts has more developed event-clustering, fuzzy duplicate handling, exclusion and Search More tests. Learn from those principles, but do not copy its full implementation.
-- Add lightweight event-level deduplication where it materially improves the human-selectable list, including across repeated Search More batches.
-- Consider a simple, explainable desk-aware soft ranking only after tests establish the base candidate pool and duplicate handling. Possible positive signals include freshness, specificity, a meaningful development, consequence, unusual supported facts and publisher diversity.
+- The Topic Fetcher preserves its existing desk queries, freshness windows, filters, grouping, URL fields and output handoff.
+- Each desk bucket now ranks candidates with a small explainable score combining publication freshness, title specificity, concrete development signals and whether the title includes a number. Scores affect ordering only; no story is rejected solely for lacking one of these signals.
+- Reports of the same event from different publishers are conservatively collapsed using meaningful title-token overlap. A publisher suffix matching the known publisher is ignored for comparison.
+- The duplicate rule requires substantial title overlap; sharing a player, organisation, broad event type or generic wording alone is not enough. Different events about the same person and separate boilerplate appointment stories must remain eligible.
+- After duplicate collapse, close-scoring candidates are ordered with a modest repeat-publisher penalty to improve source variety when selecting from a larger Search More pool.
+- Ranking and deduplication happen within each existing desk/category bucket. The desk layout and output handoff remain unchanged.
+- This adapts the useful event-deduplication and ranking principles in Final-Shorts without copying its larger implementation or adding RapidFuzz or any other dependency.
 - Ranking is for human editorial prioritisation, not a promised viral score. Do not claim heuristics predict virality.
 - Do not reject ordinary stories solely because they lack a dramatic hook. Human selection and Scriptwriter QC remain central.
-- A recent publication timestamp does not guarantee the story itself is current. Avoid old events republished in a new article where detectable.
-- Preserve current desk structure and handoff shape unless a tested defect requires a targeted change.
-
+- Existing freshness windows continue to apply. Ranking cannot establish whether a recently republished article concerns a genuinely current development.
+- Known limitation retained: the RSS query path has no explicit page token or offset. Search More can only advance through the finite current result pool. Broader query diversity is outside this step.
+- Step 2 is complete only after mocked regression tests and the full GitHub Actions workflow pass; then rewrite this context to record verified results before Step 3.
 ### Step 3 — Scriptwriter real-story and multi-desk validation
 
 After Topic Fetcher steps are completed:
@@ -394,11 +394,11 @@ Stage 3 is approved after successful local generation and manual QC. Narration o
 ## Current files
 
 - PROJECT_CONTEXT.md — complete source of truth, replaced after each completed project change.
-- topic_fetcher.py — concurrent GNews Topic Fetcher with desk-specific queries, freshness/utility filtering, India cricket phrase grouping and the existing headline handoff.
+- topic_fetcher.py — concurrent GNews Topic Fetcher with desk-specific queries, freshness/utility filtering, conservative title-overlap event deduplication, explainable candidate ranking/publisher variety, India cricket phrase grouping and the existing headline handoff.
 - scriptwriter.py — source-first, desk-aware Scriptwriter with the editorial fingerprint, explicit three-choice angle planning, selected-angle-authoritative writing, Custom angle support, and progressively stricter script redo passes.
 - app.py — Test dashboard through Audio. Stage imports are local; editorial angles are presented before each Scriptwriter generation; selected story_angle is retained through QC and Audio handoff.
 - audio.py — local Chatterbox narration for approved Scriptwriter slides.
-- tests/test_topic_fetcher.py — deterministic Topic Fetcher tests, including multi-batch Search More/exclude-seen coverage using a mocked 100-result pool.
+- tests/test_topic_fetcher.py — deterministic Topic Fetcher tests, including multi-batch Search More/exclude-seen coverage plus mocked event-deduplication, generic-story preservation, specificity-ranking and publisher-variety tests. Step 2 CI verification is pending.
 - tests/test_scriptwriter.py — Scriptwriter and editorial-angle tests, including unresolved Google News landing content, redirection to an exact publisher URL and labelled summary fallback. Multi-desk real-story output review remains outstanding.
 - tests/test_audio.py — Audio dependency-loading and input-validation tests.
 - .github/workflows/test.yml — deterministic CI.
@@ -410,4 +410,5 @@ Stage 3 is approved after successful local generation and manual QC. Narration o
 - CI checks Python compilation and runs pytest.
 - CI must use deterministic mocks for Topic Fetcher and Scriptwriter source-handling tests; do not require live GNews results or a minimum number of current stories.
 - Step 1 CI verification passed: Python compilation succeeded and 33 tests passed in 0.31 seconds on commit `8172021f3b49431925f21c7e6f43d09c5ce55f7a`. [Run 135](https://github.com/AakarshBot/YouTube-Shorts-Automated/actions/runs/38168877364).
+- Step 2 implementation and regression tests are on `main`; latest verification remains pending in GitHub Actions.
 - Do not merge a red commit.

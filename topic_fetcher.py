@@ -155,6 +155,93 @@ def _clean(value):
 def _url(value):
     return _clean(value).rstrip("/")
 
+STORY_STOPWORDS = {
+    "a", "an", "and", "are", "as", "at", "amid", "after", "before", "be", "been",
+    "but", "by", "for", "from", "has", "have", "in", "into", "is", "it", "its",
+    "of", "on", "or", "that", "the", "their", "this", "to", "was", "were", "will",
+    "with", "over", "under", "today", "yesterday", "latest", "news", "update",
+    "updates", "report", "reports", "says", "said", "say", "new",
+}
+
+STORY_SIGNALS = (
+    "record", "first-ever", "first ever", "injury", "comeback", "retirement", "retires",
+    "appointed", "resigns", "resignation", "suspended", "suspension", "ban", "banned",
+    "court", "ruling", "launch", "launches", "unveils", "acquires", "merger", "funding",
+    "breakthrough", "discovery", "returns", "debut", "recalls", "upset", "wins", "beats",
+    "defeats", "announces", "reveals", "decision", "investigation", "deal", "profit",
+    "loss", "cuts", "hikes", "arrest", "dies", "death", "rescue", "fire", "flood",
+    "storm", "security flaw", "law change", "rule change",
+)
+
+def _topic_title(row):
+    title = _clean(row.get("title"))
+    publisher = _clean(row.get("publisher")).casefold()
+    if publisher:
+        for separator in (" | ", " - ", " – ", " — "):
+            parts = title.split(separator)
+            if len(parts) > 1 and _clean(parts[-1]).casefold() == publisher:
+                title = separator.join(parts[:-1])
+                break
+    return _clean(title)
+
+def _story_tokens(title):
+    return {
+        token for token in re.findall(r"[a-z0-9]+", _clean(title).casefold())
+        if len(token) > 2 and token not in STORY_STOPWORDS
+    }
+
+def _same_story_event(first, second):
+    first_url = _url(first.get("url"))
+    if first_url and first_url == _url(second.get("url")):
+        return True
+
+    left = _story_tokens(_topic_title(first))
+    right = _story_tokens(_topic_title(second))
+    shared = len(left & right)
+    if shared < 3:
+        return False
+    dice = 2 * shared / (len(left) + len(right))
+    return (shared >= 4 and dice >= 0.58) or (shared >= 3 and dice >= 0.82)
+
+def _story_score(row, now):
+    title = _topic_title(row)
+    tokens = _story_tokens(title)
+    age_hours = max(0.0, (now - row["published_at"]).total_seconds() / 3600)
+    freshness = max(0.0, 72.0 - age_hours) / 72.0 * 3.0
+    specificity = min(2.1, max(0, len(tokens) - 3) * 0.35)
+    lower_title = title.casefold()
+    signals = sum(
+        1 for signal in STORY_SIGNALS
+        if re.search(r"\b" + re.escape(signal) + r"\b", lower_title)
+    )
+    development = min(2.4, signals * 0.6)
+    number = 0.3 if re.search(r"\b\d[\d,.%]*\b", title) else 0.0
+    return freshness + specificity + development + number
+
+def _rank_and_deduplicate(rows, limit=None):
+    now = datetime.now(timezone.utc)
+    ranked = sorted(rows, key=lambda row: _story_score(row, now), reverse=True)
+    unique = []
+    for row in ranked:
+        if not any(_same_story_event(row, selected) for selected in unique):
+            unique.append(row)
+
+    selected = []
+    publisher_counts = {}
+    while unique and (limit is None or len(selected) < limit):
+        def adjusted(index):
+            row = unique[index]
+            publisher = _clean(row.get("publisher")).casefold() or _url(row.get("url"))
+            score = _story_score(row, now)
+            return score - min(1.2, publisher_counts.get(publisher, 0) * 0.45), score, -index
+
+        index = max(range(len(unique)), key=adjusted)
+        row = unique.pop(index)
+        selected.append(row)
+        publisher = _clean(row.get("publisher")).casefold() or _url(row.get("url"))
+        publisher_counts[publisher] = publisher_counts.get(publisher, 0) + 1
+    return selected
+
 def _group_india_rows(rows, limit=25):
     single_stop = {
         "after", "all", "amid", "and", "are", "before", "beat", "beats", "beating",
@@ -275,7 +362,7 @@ def fetch_topics(genre, exclude_urls=()):
     now = datetime.now(timezone.utc)
     result = []
     for label, rows in grouped.items():
-        rows.sort(key=lambda x: x["published_at"], reverse=True)
+        rows = _rank_and_deduplicate(rows)
         fresh = [r for r in rows if r["published_at"] >= now - timedelta(hours=24)]
 
         if genre == "Cricket — India / Pakistan / Sri Lanka / Asia" and label == "India":
