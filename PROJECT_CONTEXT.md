@@ -38,7 +38,7 @@ The dashboard is Test-only through Audio. Live remains disabled until Test appro
 
 Current assessments:
 - Topic Fetcher — 7/10. Step 1 source/repeat-search reliability and Step 2 basic event deduplication/ranking are implemented and CI-verified. Broader discovery after the finite RSS pool and real-world editorial-quality review remain open.
-- Scriptwriter — 6/10. The editorial specification remains locked. Source-resolution recovery, manual-source retries, redo error recovery and QC validation are in place; nine desk-contract fixtures are being aligned with the real dashboard handoff. Live Groq-generated editorial output still needs manual review.
+- Scriptwriter — 6/10. The editorial specification remains locked. Source-resolution recovery, manual-source retries, redo error recovery and QC validation passed CI. Desk-contract fixtures now use actual dashboard desk values; live Groq-generated editorial output still needs manual review.
 - Audio — approved at 8/10 after successful local generation and manual QC.
 - Subtitles, Visuals, Renderer and Upload — not active in the current Test flow.
 
@@ -117,7 +117,7 @@ Status: STEP 2 COMPLETE. The implementation and regression tests are committed; 
 
 ### Step 3 — Scriptwriter real-story and multi-desk validation
 
-Status: IN PROGRESS. Dashboard recovery, source handoff and QC changes passed 53 tests on the previous commit. During final readiness review, I found that several desk fixtures used subcategory names instead of the actual desk values passed by the dashboard; the fixtures and a guard test are being corrected, then CI must pass again before local testing. Scriptwriter remains 6/10 because live generated editorial output has not been manually reviewed.
+Status: AUTOMATED PREPARATION COMPLETE; MANUAL LIVE-MODEL REVIEW NEXT. Dashboard recovery, source handoff, QC changes and desk fixtures aligned to the actual dashboard handoff passed Python compilation and 54 tests in 2.73 seconds on commit `dff5f0929421a89b7c735be4e6174cc7e22496b1`. [GitHub Actions run](https://github.com/AakarshBot/YouTube-Shorts-Automated/actions/runs/38171646205). Root `.env` exclusion is being added in this context/safety update; its CI run must pass before local testing. Scriptwriter remains 6/10 because live generated editorial output has not been manually reviewed.
 
 - Run representative stories from regional cricket, global cricket, niche sports, News/Politics, Technology, Entertainment, Business & Finance, Gaming, and Science & Space through the existing Test workflow.
 - Inspect source evidence, angle choices, generated narration, titles and QC fields—not only schema validity.
@@ -131,7 +131,7 @@ Status: IN PROGRESS. Dashboard recovery, source handoff and QC changes passed 53
 #### Step 3 implementation and readiness checks
 
 - The angle output JSON schema allows an empty `angles` array for `needs_more_sources`; exactly three are still enforced in Python for a ready result.
-- Selecting a story no longer fails just because optional GNews URL resolution raises; the original URL remains available to the selected-source HTTP redirect reader.
+- Selecting a story no longer fails just because optional GNews URL resolution raises or its optional module is unavailable; the original URL remains available to the selected-source HTTP redirect reader.
 - Related and manual sources preserve any publisher URL recorded by `article_text()` and avoid duplicate evidence when distinct Google News URLs resolve to the same publisher URL.
 - The dashboard does not automatically rerun angle generation on every Streamlit interaction when a prior result already says `needs_more_sources`. The user can retry with additional URLs, including after a previous manual-source attempt; already-collected URL evidence is not added twice.
 - Script Redo generation errors are shown with the active angle choices so the user can retry, rather than leaving the redo path stuck behind a hidden angle picker.
@@ -423,7 +423,7 @@ Stage 3 is approved after successful local generation and manual QC. Narration o
 - tests/test_audio.py — Audio dependency-loading and input-validation tests.
 - .github/workflows/test.yml — deterministic CI.
 - requirements.txt — lightweight dependencies; Chatterbox is installed manually in the local environment.
-- .gitignore — excludes local Audio outputs and narrator reference audio.
+- .gitignore — excludes the root `.env` API-key file, local Audio outputs and narrator reference audio.
 
 ## CI contract
 
@@ -432,4 +432,7 @@ Stage 3 is approved after successful local generation and manual QC. Narration o
 - Step 1 CI verification passed: Python compilation succeeded and 33 tests passed in 0.31 seconds on commit `8172021f3b49431925f21c7e6f43d09c5ce55f7a`. [Run 135](https://github.com/AakarshBot/YouTube-Shorts-Automated/actions/runs/38168877364).
 - Step 2 CI verification passed: Python compilation succeeded and 38 tests passed in 3.85 seconds on commit `15a3fa00e38ccc0b4fa84d269c8f4176273b61c1`. [Run 137](https://github.com/AakarshBot/YouTube-Shorts-Automated/actions/runs/38169649933).
 - Step 3 automated verification passed on commit `192fcf3024871fd1a3aa4a35845710aa6b702566`: Python compilation succeeded and **48 tests passed in 3.83 seconds**. [Run 139](https://github.com/AakarshBot/YouTube-Shorts-Automated/actions/runs/38170661262). This includes a mocked nine-desk contract suite and empty-angle insufficiency coverage; it does not replace manual review of live Groq-generated story output.
+- Dashboard recovery/QC fixes passed Python compilation and **53 tests in 3.89 seconds** on commit `f35fcb7475c278ec4f0270da33f2e0bdbedf4b70`. [Run 142](https://github.com/AakarshBot/YouTube-Shorts-Automated/actions/runs/38171554480).
+- Corrected actual dashboard desk handoff fixtures passed Python compilation and **54 tests in 2.73 seconds** on commit `dff5f0929421a89b7c735be4e6174cc7e22496b1`. [Run 143](https://github.com/AakarshBot/YouTube-Shorts-Automated/actions/runs/38171646205).
+- The current context and `.gitignore` update adds root `.env` exclusion. Check its context-only Actions run before requesting local testing.
 - Do not merge a red commit.
