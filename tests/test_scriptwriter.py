@@ -92,6 +92,26 @@ def test_packaging_is_required():
     assert "First comment is required." in errors
 
 
+def test_qc_rejects_blank_title_options_and_hashtags():
+    result = make_ready()
+    result["titles"] = ["Valid title", "   "]
+    result["hashtags"] = [""]
+    errors = validate_script(result)
+    assert "Every title option needs text." in errors
+    assert "At least one relevant hashtag is required." in errors
+
+
+def test_malformed_qc_fields_are_rejected_without_crashing():
+    result = make_ready()
+    result["titles"] = None
+    result["hashtags"] = None
+    result["slides"] = None
+    errors = validate_script(result)
+    assert "Every slide must be an object." in errors
+    assert "At least two title options are required." in errors
+    assert "At least one relevant hashtag is required." in errors
+
+
 def test_story_angle_is_required():
     result = make_ready()
     result["story_angle"] = None
@@ -126,6 +146,15 @@ def test_editorial_angle_titles_must_be_unique_and_two_to_five_words():
     errors = validate_editorial_angles(result)
     assert "Editorial angle titles must be unique." in errors
     assert "Editorial angle 3 title must contain 2–5 words." in errors
+
+
+def test_insufficient_evidence_must_return_no_angles():
+    result = {
+        "status": "needs_more_sources",
+        "reason": "The available summary is too thin.",
+        "angles": [make_angle()],
+    }
+    assert "Editorial angles must be empty when more sources are needed." in validate_editorial_angles(result)
 
 
 class _Response:
@@ -683,3 +712,49 @@ def test_scriptwriter_contract_is_desk_aware(monkeypatch, desk, title, evidence,
     assert evidence in captured[1]["messages"][1]["content"]
     assert angle_title in captured[1]["messages"][1]["content"]
     assert "SELECTED EDITORIAL ANGLE — AUTHORITATIVE" in captured[1]["messages"][1]["content"]
+
+
+
+def test_related_sources_keep_resolved_publisher_urls(monkeypatch):
+    import scriptwriter
+
+    class FakeGNews:
+        def __init__(self, **kwargs):
+            pass
+
+        def get_news(self, title):
+            return [{
+                "title": "Related report",
+                "url": "https://news.google.com/rss/articles/raw-token",
+                "publisher": "Example",
+                "description": "Related description",
+            }]
+
+    monkeypatch.setattr(scriptwriter, "GNews", FakeGNews)
+
+    def fake_article_text(source):
+        source["url"] = "https://Example.com/Story?ID=abc"
+        return "Readable publisher article text. " * 20
+
+    monkeypatch.setattr(scriptwriter, "article_text", fake_article_text)
+    result = scriptwriter.find_related_sources({
+        "title": "Story",
+        "url": "https://example.com/primary",
+    })
+    assert result[0]["url"] == "https://Example.com/Story?ID=abc"
+
+
+def test_manual_sources_keep_resolved_publisher_urls_and_deduplicate(monkeypatch):
+    import scriptwriter
+
+    def fake_article_text(source):
+        source["url"] = "https://Example.com/Story?ID=abc"
+        return "Readable publisher article text. " * 20
+
+    monkeypatch.setattr(scriptwriter, "article_text", fake_article_text)
+    result = scriptwriter.manual_sources([
+        "https://news.google.com/rss/articles/raw-token",
+        "https://news.google.com/rss/articles/another-token",
+    ])
+    assert len(result) == 1
+    assert result[0]["url"] == "https://Example.com/Story?ID=abc"

@@ -188,28 +188,29 @@ def article_text(story):
 def find_related_sources(story):
     news = GNews(language="en", max_results=5, max_retries=1)
     rows = news.get_news(story["title"])
-    seen = {story["url"].rstrip("/")}
+    seen = {str(story["url"]).rstrip("/")}
     sources = []
     for row in rows:
         url = str(row.get("url") or "").strip().rstrip("/")
         title = _clean(row.get("title"))
         if not url or not title or url in seen:
             continue
+        source = {"title": title, "url": url, "description": row.get("description")}
         try:
-            text = article_text({
-                "title": title,
-                "url": url,
-                "description": row.get("description"),
-            })
+            text = article_text(source)
         except (RuntimeError, ValueError):
+            continue
+        resolved_url = str(source.get("url") or url).strip().rstrip("/")
+        if resolved_url in seen:
+            seen.add(url)
             continue
         sources.append({
             "title": title,
-            "url": url,
+            "url": resolved_url,
             "publisher": _clean(row.get("publisher")),
             "text": text,
         })
-        seen.add(url)
+        seen.update({url, resolved_url})
     return sources
 
 
@@ -218,14 +219,24 @@ def manual_sources(urls):
     seen = set()
     for url in urls:
         url = url.strip()
-        if not url or url in seen or not _valid_url(url):
+        if not url or url.rstrip("/") in seen or not _valid_url(url):
             continue
+        source = {"title": url, "url": url}
         try:
-            text = article_text({"title": url, "url": url})
+            text = article_text(source)
         except (RuntimeError, ValueError):
             continue
-        sources.append({"title": url, "url": url, "publisher": "Manual source", "text": text})
-        seen.add(url)
+        resolved_url = str(source.get("url") or url).strip()
+        key = resolved_url.rstrip("/")
+        if key in seen:
+            continue
+        sources.append({
+            "title": url,
+            "url": resolved_url,
+            "publisher": "Manual source",
+            "text": text,
+        })
+        seen.update({url.rstrip("/"), key})
     return sources
 
 
@@ -487,7 +498,12 @@ def validate_editorial_angles(result):
 
     status = result.get("status")
     if status == "needs_more_sources":
-        return [] if str(result.get("reason", "")).strip() else ["A reason is required when more sources are needed."]
+        errors = []
+        if not str(result.get("reason", "")).strip():
+            errors.append("A reason is required when more sources are needed.")
+        if result.get("angles") != []:
+            errors.append("Editorial angles must be empty when more sources are needed.")
+        return errors
     if status != "ready":
         return ["Editorial angle status must be ready or needs_more_sources."]
 
@@ -525,23 +541,31 @@ def validate_script(result):
         return ["Script status must be ready or needs_more_sources."]
 
     headline = str(result.get("opening_headline", "")).strip()
-    slides = result.get("slides", [])
+    raw_slides = result.get("slides", [])
+    slides = raw_slides if isinstance(raw_slides, list) else []
     errors = []
     if not slides or not all(isinstance(slide, dict) for slide in slides):
         errors.append("Every slide must be an object.")
     elif not MIN_SLIDES <= len(slides) <= MAX_SLIDES:
         errors.append(f"Script must contain {MIN_SLIDES}–{MAX_SLIDES} slides.")
-    elif len(re.findall(r"\b\w+[’'-]?\w*\b", slides[0].get("voiceover", ""))) >= 14:
+    elif not isinstance(slides[0].get("voiceover"), str):
+        errors.append("Every slide needs spoken narration.")
+    elif len(re.findall(r"\b\w+[’'-]?\w*\b", slides[0]["voiceover"])) >= 14:
         errors.append("Slide 1 must contain fewer than 14 words.")
 
     words = sum(
-        len(re.findall(r"\b\w+[’'-]?\w*\b", slide.get("voiceover", "")))
+        len(re.findall(r"\b\w+[’'-]?\w*\b", slide["voiceover"]))
         for slide in slides
-        if isinstance(slide, dict)
+        if isinstance(slide, dict) and isinstance(slide.get("voiceover"), str)
     )
     if words > MAX_WORDS:
         errors.append("Total narration must be 65 words or fewer.")
-    if not all(isinstance(slide, dict) and slide.get("voiceover", "").strip() for slide in slides):
+    if not all(
+        isinstance(slide, dict)
+        and isinstance(slide.get("voiceover"), str)
+        and slide["voiceover"].strip()
+        for slide in slides
+    ):
         errors.append("Every slide needs spoken narration.")
     if len(re.findall(r"\b\S+\b", headline)) not in (3, 4):
         errors.append("Opening headline must contain exactly 3 or 4 words.")
@@ -550,11 +574,17 @@ def validate_script(result):
     voices = [slide["voiceover"].strip().lower() for slide in slides if isinstance(slide, dict) and slide.get("voiceover")]
     if len(set(voices)) < len(voices):
         errors.append("Slides must not be duplicated.")
-    if len(result.get("titles", [])) < 2:
+    titles = result.get("titles")
+    if not isinstance(titles, list) or len(titles) < 2:
         errors.append("At least two title options are required.")
+    elif not all(isinstance(title, str) and title.strip() for title in titles):
+        errors.append("Every title option needs text.")
     if not str(result.get("description", "")).strip():
         errors.append("Description is required.")
-    if not result.get("hashtags"):
+    hashtags = result.get("hashtags")
+    if not isinstance(hashtags, list) or not any(
+        isinstance(tag, str) and tag.strip() for tag in hashtags
+    ):
         errors.append("At least one relevant hashtag is required.")
     if not str(result.get("first_comment", "")).strip():
         errors.append("First comment is required.")

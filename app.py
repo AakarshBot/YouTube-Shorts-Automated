@@ -183,10 +183,15 @@ elif st.session_state.page == "topics":
                             st.markdown(f'<div class="headline">{h["title"]}</div>', unsafe_allow_html=True)
                             st.markdown(f"<div class='meta'>{h['publisher']} · {h['published_at'][:16].replace('T',' ')} · <a href='{h['url']}' target='_blank'>Source</a></div>", unsafe_allow_html=True)
                             if st.button("Use this story →", key=f"pick-{h['url']}-{index}"):
-                                from gnews.utils.utils import resolve_url
-
                                 selected = dict(h)
-                                selected["url"] = resolve_url(selected["url"])
+                                try:
+                                    from gnews.utils.utils import resolve_url
+
+                                    resolved_url = resolve_url(selected["url"])
+                                    if resolved_url:
+                                        selected["url"] = resolved_url
+                                except Exception:
+                                    pass
                                 st.session_state.selected_story = selected
                                 st.session_state.source_evidence = []
                                 st.session_state.script_versions = []
@@ -228,7 +233,12 @@ elif st.session_state.page == "scriptwriter":
         st.markdown(f'<div class="headline">{story["title"]}</div>', unsafe_allow_html=True)
         st.markdown(f"<div class='meta'>{story['publisher']} · <a href='{story['url']}' target='_blank'>Source</a></div>", unsafe_allow_html=True)
 
-        if not st.session_state.script_versions and not st.session_state.editorial_angles and not st.session_state.script_error:
+        if (
+            not st.session_state.script_versions
+            and not st.session_state.editorial_angles
+            and not st.session_state.script_error
+            and st.session_state.writer_status is None
+        ):
             with st.spinner("Reading the source and finding three editorial angles…"):
                 try:
                     primary_error = None
@@ -313,10 +323,17 @@ elif st.session_state.page == "scriptwriter":
             st.warning("Not enough of a story yet")
             st.write(st.session_state.writer_reason or "More source information is needed to build a genuine Short.")
             urls = st.text_area("Additional source URLs", placeholder="Paste one or more URLs, one per line", key="initial-source-urls")
-            if not st.session_state.manual_sources_attempted and st.button("Add sources and build editorial angles", type="primary", use_container_width=True):
+            if st.button("Add sources and build editorial angles", type="primary", use_container_width=True):
                 st.session_state.manual_sources_attempted = True
                 with st.spinner("Reading the additional sources and finding three editorial angles…"):
-                    added = manual_sources(urls.splitlines())
+                    existing_urls = {
+                        str(item.get("url") or "").rstrip("/")
+                        for item in st.session_state.source_evidence
+                    }
+                    added = [
+                        source for source in manual_sources(urls.splitlines())
+                        if str(source.get("url") or "").rstrip("/") not in existing_urls
+                    ]
                     st.session_state.source_evidence.extend(added)
                     if added:
                         try:
@@ -338,7 +355,10 @@ elif st.session_state.page == "scriptwriter":
                             st.session_state.script_error = str(exc)
                     else:
                         st.session_state.writer_status = "needs_more_sources"
-                        st.session_state.writer_reason = "The additional URLs could not provide readable source information."
+                        st.session_state.writer_reason = (
+                            "Those URLs did not provide any new readable source information. "
+                            "Try different source URLs."
+                        )
 
         if st.session_state.editorial_angles and st.session_state.angle_mode in {"initial", "redo"} and not st.session_state.script_error:
             mode_label = "Choose what this Short is actually about" if st.session_state.angle_mode == "initial" else "Choose a new editorial angle"
@@ -428,7 +448,10 @@ elif st.session_state.page == "scriptwriter":
                             if st.session_state.angle_mode == "initial":
                                 st.session_state.angle_mode = None
                     except Exception as exc:
-                        st.session_state.script_error = str(exc)
+                        if st.session_state.angle_mode == "redo":
+                            st.session_state.angle_error = str(exc)
+                        else:
+                            st.session_state.script_error = str(exc)
 
         if st.session_state.script_versions:
             st.caption(f"Sources used: {len(st.session_state.source_evidence)}")
@@ -597,10 +620,18 @@ elif st.session_state.page == "scriptwriter":
                         with st.spinner("Finding three new editorial angles from the existing evidence…"):
                             try:
                                 if redo_urls.strip():
-                                    added = manual_sources(redo_urls.splitlines())
+                                    existing_urls = {
+                                        str(item.get("url") or "").rstrip("/")
+                                        for item in st.session_state.source_evidence
+                                    }
+                                    added = [
+                                        source for source in manual_sources(redo_urls.splitlines())
+                                        if str(source.get("url") or "").rstrip("/") not in existing_urls
+                                    ]
                                     if not added:
-                                        raise RuntimeError("The additional URLs did not provide readable source information.")
+                                        raise RuntimeError("The additional URLs did not provide any new readable source information.")
                                     st.session_state.source_evidence.extend(added)
+                                    st.session_state.manual_sources_attempted = True
                                     stage = "manual"
                                 else:
                                     stage = "manual" if st.session_state.manual_sources_attempted else "automatic" if st.session_state.auto_sources_attempted else "primary"
@@ -631,10 +662,18 @@ elif st.session_state.page == "scriptwriter":
                         st.session_state.angle_error = None
                         with st.spinner("Reading the new sources and finding three new editorial angles…"):
                             try:
-                                added = manual_sources(redo_urls.splitlines())
+                                existing_urls = {
+                                    str(item.get("url") or "").rstrip("/")
+                                    for item in st.session_state.source_evidence
+                                }
+                                added = [
+                                    source for source in manual_sources(redo_urls.splitlines())
+                                    if str(source.get("url") or "").rstrip("/") not in existing_urls
+                                ]
                                 if not added:
-                                    raise RuntimeError("The additional URLs did not provide readable source information.")
+                                    raise RuntimeError("The additional URLs did not provide any new readable source information.")
                                 st.session_state.source_evidence.extend(added)
+                                st.session_state.manual_sources_attempted = True
                                 result = suggest_editorial_angles(
                                     story,
                                     st.session_state.source_evidence,
