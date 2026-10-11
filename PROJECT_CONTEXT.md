@@ -1,59 +1,138 @@
 # YouTube Shorts Automated — Project Context
 
-Current source of truth. Replace this file completely after every project change. Never append history.
+This file is the complete current source of truth for the repository. Replace the entire file after every completed project change. Never append a changelog or leave contradictory historical instructions.
 
-## Rules
+## Working agreement
 
-- Test first, Live second.
-- No wrappers, adapters, compatibility layers, proxy functions or scaffolding.
-- Delete and rewrite code directly when the current approach is wrong.
-- No new runtime dependencies or API services unless explicitly approved.
+- Treat this repository as the Shorts factory being actively optimised.
+- Work one bounded step at a time. After reporting a completed step, continue only after the user says “yes, continue”, unless a decision or manual action is genuinely required from the user.
+- Before changing code, read this context and inspect the current implementation and relevant tests.
+- Test first, Live second. Do not enable Live before Test approvals are complete.
+- No wrappers, adapters, compatibility layers, proxy functions, scaffolding, or unnecessary helper layers.
+- Prefer deleting and rewriting the relevant code directly when the current approach is wrong.
+- No extra code, runtime dependencies, or API services unless the need is demonstrated and the user explicitly approves them.
+- Keep the implementation as small and editable as possible. Do not copy whole systems from Final-Shorts.
 - Groq is called directly from Scriptwriter. Do not add a Groq SDK or generic request wrapper.
-- The local Groq key is read directly from the repo-root .env as GROQ_API_KEY when it is not already in the environment. Never store the key itself in code or CI.
+- Read GROQ_API_KEY from the environment or the repo-root .env when it is not already set. Never put the key in code or CI.
 - Groq requests use a browser-style User-Agent because the API edge can reject bare Python urllib clients with Cloudflare error 1010.
 - English only for now.
 - Final editorial approval is manual.
 - Dashboard startup must not eagerly import stage modules that are not needed for the current page. Keep stage imports direct and local to the page/action that uses them.
 - Same-page widget actions must not trigger an unnecessary second full Streamlit rerun. Keep st.rerun() for page transitions or genuinely new generation cycles that cannot continue in the current execution.
+- After each completed code change, run the relevant tests, check GitHub Actions, and completely rewrite this context to reflect the repository's actual state. Do not describe planned work as completed.
+- CI must not depend on live GNews availability or a minimum current-story count.
+- Do not merge or leave a red commit.
 
-## Factory
+## Factory and stage status
 
 Formats:
 - Deep-Dive — active.
 - Top-5 — planned.
 - Did You Know — planned.
-- Others later.
+- Other formats later.
 
 Seven stages:
 Topic Fetcher → Scriptwriter → Audio → Subtitles → Visuals → Renderer → Upload.
 
-Live remains disabled until Test approvals are complete.
+The dashboard is Test-only through Audio. Live remains disabled until Test approvals are complete. Subtitles, Visuals, Renderer and Upload remain disabled; preserve their current functions and handovers unless a future approved step explicitly requires a change.
 
-## Topic Fetcher — COMPLETE — 7/10
+Current assessments:
+- Topic Fetcher — 7/10. Its core implementation exists, but it is reopened for targeted source/repeat-search reliability and discovery-quality work. Do not call it complete until the planned tests and fixes are verified.
+- Scriptwriter — 6/10. Its editorial specification is locked and implemented; representative multi-desk output tests and source-retrieval verification remain outstanding.
+- Audio — approved at 8/10 after successful local generation and manual QC.
+- Subtitles, Visuals, Renderer and Upload — not active in the current Test flow.
 
-Do not reopen unless a later requirement or regression requires it.
+## Optimisation plan — do these steps in order
 
-- Maintained ranahaani/GNews is the approved news source.
-- Independent GNews searches run concurrently with no artificial 8-worker ceiling.
-- Existing queries, filters, grouping, story counts, handovers and output fields remain unchanged.
-- Every selectable headline carries its title, Google News result URL, publisher, published_at and GNews description.
-- Topic Fetcher does not resolve article URLs during bulk search. Resolution happens only after the user selects a story, immediately before Scriptwriter source reading.
-- Selected-story resolution uses GNews's existing resolve_url(url) directly on the stored URL.
-- Do not pass the already-normalised Topic Fetcher headline object through GNews process_url(); that function expects the raw feed shape and is not the handoff format used here.
-- Once resolved, preserve the selected publisher URL exactly. Do not lowercase or strip query parameters.
-- Do not add Playwright, another news service, a custom Google News client, copied GNews code or another dependency merely to reduce runtime.
-- The bulk search path is the performance-sensitive path; avoid per-article network work after GNews returns its RSS results.
+The first audit reviewed this repository's context, code, tests and GitHub Actions, and compared relevant functions and tests in Final-Shorts. No application code was changed during that audit. The latest observed Actions run was on 7 October 2026: Python compilation passed and all 30 tests passed. That verifies the existing offline suite only; it does not prove live Google News URL resolution or real-story editorial quality.
 
-## Scriptwriter — SPEC LOCKED / APPROVED — 6/10 — PENDING MULTIPLE DESK TEST CASES
+Work on one step at a time. Do not jump ahead or broaden the scope without a concrete finding.
 
-The selected Topic Fetcher headline is the starting subject. The selected Topic Fetcher desk/genre is passed directly into every Scriptwriter run so the editorial context matches the selected desk.
+### Step 1 — Topic Fetcher reliability: selected-source resolution and Search More
+
+This is the next task. Inspect the exact code and add focused, deterministic tests before making the smallest direct code change necessary.
+
+#### A. Selected Google News URL and source-reading reliability
+
+- Topic Fetcher must not resolve URLs during bulk search. Bulk fetching is performance-sensitive, and article reading should only begin after the user chooses a story.
+- The current dashboard calls GNews resolve_url() when the user selects a headline. The Scriptwriter's article_text() then requests the selected URL directly and falls back to the Topic Fetcher GNews description when article extraction fails.
+- GNews resolve_url() relies on its optional Playwright integration to resolve Google News redirect URLs. If Playwright is unavailable, it can return the original Google News URL unchanged.
+- The current lightweight requirements.txt lists Streamlit and GNews, not Playwright. Therefore a clean installation does not guarantee the selected headline is resolved to a publisher URL. This is a portability risk to test, not proof that every local run fails.
+- Tests must distinguish a genuinely resolved publisher URL and readable article text from an unresolved Google News URL or a summary fallback. Do not silently treat a short summary as if full article text had been read.
+- The existing description fallback remains allowed when it is the only evidence available, but the Scriptwriter must not misrepresent it as full article research. If there is not enough evidence to support a substantive Short, use the existing needs_more_sources flow.
+- Keep the selected publisher URL exactly as resolved. Do not lowercase it or strip query parameters.
+- Do not pass the already-normalised Topic Fetcher headline object through GNews process_url(); it expects a raw GNews feed item, not the current handoff object.
+- Do not add Playwright, another news service, a custom Google News client, copied GNews code or another dependency without demonstrating necessity and obtaining explicit approval.
+- Do not add network work to the Topic Fetcher bulk-search path to solve this problem.
+
+#### B. Search More / exclude-seen reliability
+
+- The current fetcher runs its configured queries concurrently and removes exact URLs from the supplied exclude_urls set.
+- The current “Search 20 more” action reruns the same query definitions with a larger result limit and excludes previously seen URLs; it does not use a feed offset or explicit pagination token.
+- The next batch can overlap heavily with the first batch, particularly in India cricket, and return too few new stories.
+- Add deterministic regression tests for the repeated-search/exclude-seen handoff. Tests must demonstrate what happens to previously seen URLs and whether returned stories are genuinely new under the code's selection rules.
+- Do not make CI depend on current GNews results, network availability, or a minimum number of live stories.
+- Preserve the current initial-search speed. URL resolution and article extraction must remain selected-story operations, not bulk Topic Fetcher work.
+
+Step 1 is complete only when:
+1. Tests reproduce the relevant source-resolution and repeated-search behaviour without requiring live network access.
+2. The smallest justified direct implementation change is made. Do not add compatibility layers or unnecessary abstractions.
+3. Test coverage includes a selected Google News URL that remains unresolved, a resolved publisher URL, article-text extraction failure/summary fallback, and exclusion of already-seen URLs in Search More.
+4. The full CI workflow passes.
+5. This context is completely rewritten to describe the actual code and any remaining limitations.
+
+Do not begin Step 2 until Step 1 is reported complete and the user says “yes, continue”.
+
+### Step 2 — Topic discovery quality: event duplicates and story prioritisation
+
+After Step 1 is complete and verified:
+
+- The current Topic Fetcher has desk-focused query configurations, freshness filtering, utility/reference-page filters, exact URL deduplication and a title-phrase grouping heuristic for India cricket. Most results are then ordered by publication time.
+- Exact URL deduplication does not collapse the same story published under different URLs. Phrase-based grouping can also merge unrelated stories or split paraphrased coverage of the same event.
+- Final-Shorts has more developed event-clustering, fuzzy duplicate handling, exclusion and Search More tests. Learn from those principles, but do not copy its full implementation.
+- Add lightweight event-level deduplication where it materially improves the human-selectable list, including across repeated Search More batches.
+- Consider a simple, explainable desk-aware soft ranking only after tests establish the base candidate pool and duplicate handling. Possible positive signals include freshness, specificity, a meaningful development, consequence, unusual supported facts and publisher diversity.
+- Ranking is for human editorial prioritisation, not a promised viral score. Do not claim heuristics predict virality.
+- Do not reject ordinary stories solely because they lack a dramatic hook. Human selection and Scriptwriter QC remain central.
+- A recent publication timestamp does not guarantee the story itself is current. Avoid old events republished in a new article where detectable.
+- Preserve current desk structure and handoff shape unless a tested defect requires a targeted change.
+
+### Step 3 — Scriptwriter real-story and multi-desk validation
+
+After Topic Fetcher steps are completed:
+
+- Run representative stories from regional cricket, global cricket, niche sports, News/Politics, Technology, Entertainment, Business & Finance, Gaming, and Science & Space through the existing Test workflow.
+- Inspect source evidence, angle choices, generated narration, titles and QC fields—not only schema validity.
+- Confirm that the three angles are genuinely different in narrative focus and grounded in different supported facts where the evidence allows it.
+- Confirm the selected angle actually controls the narration, rather than the writer reverting to the obvious event/result summary.
+- Confirm inaccessible or thin source material cannot quietly produce a script that implies stronger research than was available.
+- Confirm the completed narration is substantive, accurate, non-repetitive and within the hard format limits.
+- Keep manual QC as the principal editorial safety valve. Do not add a large set of subjective hard-rejection rules, extra judge/critic passes, angle scores, claim graphs, personas, automatic rewrite chains or another editorial framework.
+- Keep Scriptwriter at 6/10 until multiple representative desk tests have been manually reviewed. Update the rating only when the evidence supports it.
+
+## Topic Fetcher — implementation contract
+
+- Approved source dependency: maintained ranahaani/GNews.
+- Independent GNews searches run concurrently; no artificial 8-worker ceiling.
+- Existing desk/query configuration and grouping are preserved unless a regression or measured defect justifies a change.
+- Every selectable headline carries its title, stored Google News result URL, publisher, published_at timestamp and GNews description.
+- Bulk search must not resolve individual article URLs.
+- Resolve/read a story only after the user selects it.
+- Preserve resolved publisher URL spelling and query parameters exactly.
+- Do not change the Topic Fetcher handoff structure as a side effect of an unrelated improvement.
+- Do not introduce Playwright or another dependency merely to resolve URLs until the need and acceptable approach have been established.
+- The India cricket topic grouping currently uses repeated title phrases as an approximation of player/event grouping. It is not guaranteed to represent true event identity; Step 2 is where that is addressed.
+
+## Scriptwriter — specification locked, implementation under validation — 6/10
+
+The selected Topic Fetcher headline is the starting subject. The selected Topic Fetcher desk/genre is passed directly into every Scriptwriter run so the editorial context matches the selection.
 
 ### Desk-aware editorial context
 
-- One shared Scriptwriter implementation serves Sports and every current non-sports Deep-Dive desk.
-- The selected Topic Fetcher desk/genre is passed directly into every Scriptwriter run so the editorial context matches the user's selection.
-- The Groq system instruction identifies the writer as an experienced editor for the selected desk/genre.
-- Desk awareness changes editorial context only; source, angle, factual, slide, timing and packaging rules remain shared.
+- One shared Scriptwriter implementation serves Sports and all current non-sports Deep-Dive desks.
+- The selected desk/genre is passed directly into every Scriptwriter run.
+- The Groq system instruction identifies the writer as an experienced editor for the selected desk.
+- Desk awareness changes editorial context only; the source, angle, factual, slide, timing and packaging rules remain shared.
 - Do not create separate Scriptwriter pipelines, wrappers, desk routers or desk-specific generation functions.
 
 ### Channel editorial fingerprint
@@ -61,247 +140,190 @@ The selected Topic Fetcher headline is the starting subject. The selected Topic 
 The channel should feel like a smart, human-edited explainer: clear, confident, conversational and informed.
 
 Every Short should:
-- Go beyond "what happened" by making the most interesting supported detail, connection, context or implication understandable.
+- Go beyond “what happened” by explaining the most interesting supported detail, connection, context or implication.
 - Prefer specific facts, numbers, named people, meaningful remarks, consequences, contrasts, process and useful context.
 - Use a real story hook, then build a tight explanation and payoff around the selected editorial angle.
 - Avoid manufactured outrage, fake curiosity, generic filler, forced opinions and AI-sounding phrasing.
-- Treat the fingerprint as a consistency target, not a fixed template. Hooks, pacing, evidence leads and structure should vary by story and angle.
+- Treat this fingerprint as a consistency target, not a fixed template. Hooks, pacing, evidence leads and structure should vary by story and angle.
 
-The rejection rule remains deliberately light:
+Rejection remains deliberately light:
 - Do not reject a story because it is ordinary or lacks a flashy hook.
-- Ask for more sources only when the evidence cannot support a factual, substantive 4–5 slide Short.
+- Ask for more sources only when available evidence cannot support a factual, substantive 4–5 slide Short.
 - Manual QC remains the main editorial safety valve.
 
 ### Editorial architecture
 
-The Scriptwriter uses an explicit human-selected editorial-angle step:
-
 Source evidence → three editorial angles → human selection → Scriptwriter → editable QC.
 
-- The angle planner reads the source evidence already collected by Scriptwriter. It does not perform a second research pass.
-- When the evidence is insufficient, the angle planner returns status=needs_more_sources with a concise reason and no angles.
-- When the evidence is sufficient, the angle planner returns exactly 3 research-backed choices.
-- Each choice contains title, description and evidence_basis.
+- The angle planner reads the evidence already collected by Scriptwriter. It does not perform a separate research pass.
+- Insufficient evidence returns status=needs_more_sources, a concise reason and no angles.
+- Sufficient evidence returns exactly three research-backed choices.
+- Each angle contains title, description and evidence_basis.
 - Angle titles are 2–5 words, story-specific and unique.
-- The three choices must materially change the story's editorial spine, not merely rephrase the same summary.
-- Useful lenses can include the event/result, a meaningful statement or reaction, consequence/why it matters, performance/process, an unusual person or detail, comparison/timeline or another evidence-backed lens.
-- Do not force generic categories when the story does not support them.
+- The three choices must materially differ in the story's editorial spine, not just rephrase the same summary.
+- Possible lenses include event/result, a meaningful statement or reaction, consequence/why it matters, performance/process, an unusual person or detail, comparison/timeline, or another lens supported by the sources.
+- Do not force categories when the story does not support them.
 - Do not invent quotes, motives, consequences, criticism, controversy or interpretation.
-- The user can choose one of the three or enter a Custom angle.
-- The selected angle is authoritative for Scriptwriter. The writer must build the complete narration around it rather than reverting to the obvious event/result summary.
-- The selected angle is stored on each ready Scriptwriter result as story_angle and is retained through QC and downstream handoff.
-- The angle planner is used for initial generation and Script Redo.
-- Redo generates three new angle choices using current evidence and the previous draft context so the user can deliberately change the story perspective rather than asking for a vague rewrite.
-- Redo passes become progressively stricter. The first redo must materially change the editorial spine; later redos must move the lead evidence, central question and narrative structure further away from the previous draft.
-- The angle planner and Scriptwriter use the same collected evidence object. No duplicate article-reading or hidden research layer is introduced.
+- The user can choose one of the three angles or enter a Custom angle.
+- The selected angle is authoritative. The complete narration must be built around it rather than reverting to the obvious event/result summary.
+- A ready result stores the selected angle as story_angle and retains it through QC and downstream handoff.
+- Initial writing and Script Redo both use the angle planner.
+- Redo generates three new angle choices from the current evidence and previous-draft context. Passes become progressively stricter about changing the lead evidence, central question and narrative structure.
+- Angle planning and script generation use the same collected evidence. Do not add duplicate article-reading passes.
 - Do not add angle scoring, hook scores, source-coverage scores, critic passes, claim graphs, personas, automatic rewrite chains, title-ranking systems, provider routers or another editorial framework.
 
 ### Core editorial rule
 
 Understand the full story first. Choose the editorial lens second. Rewrite the Short from scratch third. Package it last.
 
-The writer must:
-- Read the available source material.
-- Understand what actually happened.
-- Use the selected editorial angle to decide what matters most.
-- Rewrite the narration from scratch after understanding the story.
-- Never simply expand, paraphrase or prolong the Topic Fetcher headline.
-- Treat the Topic Fetcher headline as the starting subject, not a finished script or approved YouTube title.
+The writer must read available sources, understand what happened, use the selected angle to decide what matters, and write fresh narration. It must never merely expand, paraphrase or prolong the Topic Fetcher headline. The headline is a starting subject, not an approved script or final YouTube title.
 
 ### Source workflow
 
-Initial source run:
-1. Read the exact Topic Fetcher source URL.
-2. Use readable article text when available; fall back to the Topic Fetcher GNews description when necessary.
-3. Feed that evidence to the editorial-angle planner.
-4. If the evidence is enough, show 3 editorial angles for human selection.
-5. If the evidence is not enough, return needs_more_sources and do not write a thin Short.
+Initial run:
+1. Read the selected source URL and try to obtain readable article text.
+2. If article extraction fails, the GNews description may be used as fallback evidence, but its limited nature must not be mistaken for a full article.
+3. Pass collected evidence to the angle planner.
+4. If sufficient, show exactly three angles for human selection.
+5. If insufficient, return needs_more_sources and do not write a thin Short.
 
 Automatic additional-source run:
-- Only happens when the primary evidence is not enough.
-- Uses the existing GNews dependency already used by Topic Fetcher.
-- Searches for related reporting from the selected headline.
-- Reads the usable results and combines them with the primary evidence.
+- Occurs only if the primary evidence is insufficient.
+- Uses the existing GNews dependency.
+- Searches for related reporting on the selected story.
+- Reads usable results and combines them with the existing primary evidence.
 - Feeds the combined evidence to the angle planner.
-- Does not perform another automatic related-source search after this pass.
+- Runs no second automatic related-source search after this pass.
 
 Manual additional-source run:
-- If the combined primary + automatic evidence is still insufficient, the dashboard asks for additional source URLs.
-- Multiple URLs are accepted, one per line.
-- Usable manual sources are combined with all previously collected evidence.
-- The combined evidence is fed to the angle planner.
-- If the evidence is still insufficient, stop and tell the user there is not enough information to create a genuine Short.
-- Do not invent a script, titles, description, hashtags or comment just to produce an output.
+- If primary plus automatic evidence remains insufficient, ask for source URLs, one per line.
+- Combine every usable manual source with all previously collected evidence.
+- Feed the combined evidence to the angle planner.
+- If evidence remains insufficient, clearly tell the user there is not enough information to make a genuine Short.
+- Never invent a script or packaging to force an output.
 
 Failure handling:
-- Source-reading failures are distinct from Groq/generation failures.
-- API, structured-output and generation errors must surface as actual errors; never treat them as evidence insufficiency.
-- A failed automatic related-source request must surface as an actual error; it must not be silently converted into needs_more_sources.
-- The Scriptwriter retry path must be able to retry an angle-generation failure even when source evidence was already collected.
+- Source-reading failures must be distinct from Groq/generation failures.
+- API, structured-output and generation errors must surface as actual errors, not as evidence insufficiency.
+- A failed automatic related-source request must surface as an actual error rather than silently converting into needs_more_sources.
+- The Scriptwriter retry path must be able to retry angle generation after evidence has already been collected.
 
-### Editorial angle output
+### Editorial angle output and validation
 
-Ready angle planner output:
+Ready output:
 - status = ready
-- exactly 3 angles
-- each angle has title, description, evidence_basis
+- exactly 3 angle objects
+- each has title, description and evidence_basis
 
-Insufficient angle planner output:
+Insufficient output:
 - status = needs_more_sources
 - concise reason
 - empty angles
 
-Python deterministically validates:
-- exactly 3 angles when ready
-- each angle is an object
-- title, description and evidence basis are present
-- title is 2–5 words
-- angle titles are unique
-- needs-more-sources has a reason
-
-Do not add angle scoring, hook scores, source-coverage scores, critic passes, claim graphs, personas, automatic rewrite chains, title-ranking systems, provider routers or another editorial framework.
+Python validates angle output for correct status, exactly three angles when ready, object shape, required fields, title length of 2–5 words, unique titles and a reason when more sources are needed.
 
 ### Story rules
 
-- The final Short can use one source or multiple supporting sources.
-- Multiple sources may be synthesised when they support the same story.
+- A Short may synthesise one or multiple sources supporting the same story.
 - One selected editorial angle governs the Short.
-- The final Short must contain exactly 4 or 5 slides: minimum 4, maximum 5.
-- Every slide must add important information.
-- Do not create filler, repetition or artificial sentence splits just to reach 4 or 5 slides.
+- Exactly 4 or 5 slides; minimum 4, maximum 5.
+- Every slide must add important information; no filler, repetition or artificial splits to reach the slide count.
 - Slide 1 spoken narration must contain fewer than 14 words.
-- Total spoken narration must be 65 words or fewer. This is the Scriptwriter proxy for a Short under 30 seconds.
-- The Audio stage may slightly speed the final voice when the finished audio is only marginally above 30 seconds.
-- Retention should come from real facts, context, contrast, consequence, significance or surprise in the sources.
-- Capture the important facts, context, names, teams, organisations, events, numbers and remarks needed to understand the story through the selected angle.
-- Reorder and synthesise facts as needed; do not mechanically follow article paragraphs.
+- Total narration must be 65 words or fewer as the proxy for a Short under 30 seconds.
+- Audio may slightly speed narration only when the finished audio is marginally over 30 seconds.
+- Retention should come from real facts, context, contrast, consequence, significance or surprise supported by sources.
+- Include the important facts, context, names, teams, organisations, events, numbers and remarks needed to understand the selected angle.
+- Reorder and synthesise facts rather than following article paragraphs mechanically.
 - Do not invent facts, statistics, quotes, reactions, motives, criticism, controversy, pressure, predictions or consequences.
 - Preserve the meaning and tone of important remarks.
-- If a person is identified in the source, use their proper name.
-- If a source calls someone a legend, icon, veteran or similar and the identity is known, the writer must still name the person properly in the Short. Never replace a known person's name with a generic label.
+- Use people's proper names when identified by sources. Do not hide a known person's identity behind labels such as “legend”, “icon” or “veteran”.
 
 ### Opening screen headline
 
 - Exactly 3 or 4 words.
-- Story-specific.
+- Specific to the story.
 - Separate from the spoken Slide 1 narration.
 
 ### Packaging
 
-When the status is ready, the same Scriptwriter generation also produces:
+Ready initial generation also produces:
 - At least two YouTube title options.
 - One natural description.
 - Relevant hashtags.
 - One story-specific first/creator comment.
 
-Packaging is written only after the completed Short and selected editorial angle are understood.
+Packaging comes after the completed Short and selected angle are understood.
 
-Titles must:
-- Accurately represent the completed Short.
-- Use genuinely different packaging angles.
-- Put important names and story terms early.
-- Remain concise and natural.
-- Contain no clickbait, fake curiosity, excessive capitals or unnecessary emoji.
-- Introduce no unsupported facts.
+Titles must be accurate to the finished Short, genuinely different in packaging angle, concise and natural, with important names/story terms early. No clickbait, fake curiosity, excessive capitals, unnecessary emoji or unsupported facts.
 
-Description:
-- Explain the actual story naturally.
-- Add no unsupported facts.
+The description explains the actual story naturally and adds no unsupported facts. Hashtags are relevant only. The first comment is story-specific and invites genuine discussion rather than using generic CTA boilerplate.
 
-Hashtags:
-- Relevant only.
-
-First comment:
-- Specific to the story.
-- Invites a genuine response.
-- No generic CTA boilerplate.
-
-### Script redo
+### Script Redo
 
 - Available manually before approval.
-- Existing manual QC remains the simple rewrite path: every script field can be edited and approved unchanged.
-- Redo is the stronger regeneration path and always starts by creating exactly 3 new editorial-angle choices from the current evidence and the previous script.
-- Pass 1 must materially change the editorial spine, use a different lead fact where the evidence supports it, and avoid repeating the previous opening premise or slide progression.
-- Pass 2 is stricter: avoid the previous angle's central emphasis, opening claim and evidence order unless the sources leave no defensible alternative; prefer a less-obvious supported detail, reaction, consequence, comparison or process insight.
-- Pass 3 and later use the strongest difference rule: change the central question, evidence lead and narrative structure. Do not create cosmetic rewrites just to appear different.
-- Only after repeated redos, when the sources genuinely offer no defensible alternative treatment, the angle planner may return needs_more_sources instead of forcing novelty.
-- The user can select one of the three new angles or enter a Custom angle.
-- The user may optionally provide additional source URLs specifically for the redo, one per line. Those usable sources are added to the current evidence before the new angle planner run.
-- No automatic related-source search is performed just because the user clicks Redo.
-- After the user selects an angle, the writer receives the same evidence plus the selected angle and previous draft.
-- Redo generation is script-only: Groq returns only status, reason, opening_headline and slides.
-- The previous version's YouTube titles, description, hashtags and first/creator comment are carried forward unchanged by the dashboard, then remain editable in the new QC version.
+- Manual QC is the straightforward edit-and-approve path: every script field can be changed or approved unchanged.
+- Redo begins by offering exactly three new editorial angles based on current evidence and the previous script.
+- Pass 1 must materially change the editorial spine, use a different lead fact where supported and avoid repeating the previous opening premise or slide progression.
+- Pass 2 must more strongly avoid the previous angle's central emphasis, opening claim and evidence order unless the sources leave no defensible alternative.
+- Pass 3 and later should change the central question, evidence lead and narrative structure. Do not produce cosmetic rewrites for the sake of appearing different.
+- Only after repeated redos, when sources genuinely offer no defensible alternative treatment, may the angle planner return needs_more_sources rather than force novelty.
+- The user can choose a new angle or enter a Custom angle.
+- The user may optionally supply additional source URLs for the redo, one per line. Usable sources are added to existing evidence before the new angle plan.
+- Clicking Redo alone does not trigger another automatic related-source search.
+- After angle selection, the writer receives the same evidence, selected angle and previous draft.
+- Redo is script-only: Groq returns status, reason, opening_headline and slides.
+- The dashboard carries forward the previous titles, description, hashtags and first comment unchanged. These remain editable in the new QC version.
 - story_angle is replaced with the selected redo angle.
-- Original and redo versions remain visible for manual QC.
-- The user can redo again before approval; each successful redo uses the latest version as the previous draft and increases the redo strictness level.
-- If redo evidence is insufficient, the dashboard keeps the redo source-URL field available for another user-supplied source attempt.
-- Approved title/version is never supplied to story generation.
+- Original and redo versions remain visible for human QC.
+- Each successful redo uses the latest draft as the previous version and increases strictness.
+- If redo evidence is insufficient, keep the manual source-URL field available for another user-supplied attempt.
+- An approved title/version must never be supplied to story generation.
 
-### Script output
+### Script output and deterministic validation
 
-Ready initial generation contains:
-- story_angle
-- opening_headline
-- slide-by-slide voiceover
-- multiple YouTube title options
-- description
-- hashtags
-- first/creator comment
+Ready initial generation contains story_angle, opening_headline, slide-by-slide voiceover, at least two YouTube title options, description, hashtags and first/creator comment. Ready redo returns the script fields from Groq and the dashboard attaches the preserved packaging. A non-ready result contains needs_more_sources and a concise reason, with no script or packaging.
 
-Ready redo generation contains the same final fields after the dashboard attaches preserved packaging. Groq itself is asked only for:
-- status
-- reason
-- opening_headline
-- slides
-
-A non-ready result contains:
-- status = needs_more_sources
-- concise reason
-- no script or packaging.
-
-### Deterministic Scriptwriter validation
-
-Python enforces only objective rules:
+Python enforces objective rules only:
 - Ready output has 4 or 5 slides.
 - Slide 1 has fewer than 14 words.
 - Total narration is 65 words or fewer.
 - Every slide has spoken narration.
 - Opening headline has 3 or 4 words.
-- A selected story_angle exists on every ready result.
+- Every ready result has story_angle.
 - Duplicate spoken slides are rejected.
 - At least two title options exist.
 - Description, hashtags and first comment exist.
-- status = needs_more_sources requires a reason.
+- needs_more_sources requires a reason.
 - Malformed output is rejected.
 
 ### Test dashboard flow
 
-1. Manually select a Topic Fetcher headline.
-2. Scriptwriter reads the primary source.
-3. Scriptwriter/angle planner decides whether that evidence is sufficient.
-4. If insufficient, related GNews sources are searched once and added to the evidence.
-5. If still insufficient, dashboard asks for manual source URLs.
-6. The manual-source run uses the new URLs plus all existing evidence.
-7. If still insufficient, dashboard stops with a clear Not enough information message and the writer's reason.
-8. If ready, dashboard shows exactly three research-backed editorial angles before script generation.
-9. User chooses one angle or writes a Custom angle.
-10. Scriptwriter generates the full Short around that selected angle.
-11. Dashboard shows the completed Scriptwriter QC package in fixed editorial order.
+1. User manually selects a Topic Fetcher headline.
+2. Scriptwriter attempts to read the selected source.
+3. The angle planner decides whether the available evidence is sufficient.
+4. If insufficient, related GNews sources are searched once and added to the existing evidence.
+5. If still insufficient, the dashboard asks for manual source URLs.
+6. Manual URLs are added to all existing evidence.
+7. If evidence remains insufficient, the dashboard shows a clear Not enough information message and the reason.
+8. If ready, the dashboard shows exactly three evidence-backed editorial angles.
+9. The user chooses an angle or enters a Custom angle.
+10. Scriptwriter generates the full Short around that angle.
+11. Dashboard shows the QC package in fixed editorial order.
 12. Every QC editorial field remains editable before approval.
-13. Approval validates the edited package before it becomes the Audio input.
-14. Before approval, Redo Script presents three new editorial-angle choices; each redo pass is stricter than the previous pass, and the user then generates the new script from the chosen angle.
-15. Redo preserves previous packaging unchanged until the user edits it in the new QC version.
-16. Same-page actions render from state mutated during the current Streamlit interaction; no redundant second rerun is added just to refresh a picker or generation result.
+13. Approval validates the edited package before it becomes Audio input.
+14. Before approval, Redo Script presents three new angle choices; redo strictness increases on each pass.
+15. Redo preserves previous packaging until the user edits it in the new QC version.
+16. Same-page actions use state mutated during the current Streamlit interaction; do not add a redundant second rerun only to refresh a picker or generation result.
 
 ### Scriptwriter QC editing
 
 - Editable fields: opening headline, every slide voiceover, every title option, strongest-title selection, description, hashtags and first comment.
-- The generated values are the starting values; the user can edit them or approve unchanged.
-- story_angle is displayed as context but is not a manual QC field in this stage.
-- Approval validates the edited package with the same deterministic Scriptwriter rules.
-- The approved edited version, including the selected edited title and preserved story_angle, is the exact input passed to Audio.
-- Once approved, the dashboard shows the approved version as read-only.
-- The user can create another redo only while no version is approved.
+- Generated values are initial values; user can edit them or approve unchanged.
+- story_angle is visible as context but is not a manual QC field in this stage.
+- Approval validates the edited package against the same deterministic rules.
+- The approved edited version, including the selected edited title and story_angle, is the exact input passed to Audio.
+- Once approved, the version is read-only.
+- Another redo is available only while no version is approved.
 
 ## Top-5 — PLANNED
 
@@ -310,40 +332,37 @@ Python enforces only objective rules:
 - Exactly 6 slide headlines.
 - Slide 1 under 14 words.
 - Slides 2–6 each limited to 15 seconds of speech.
-- No generic “5 stories you need to see…” opener.
+- No generic “5 stories you need to see…” opening.
 
 ## Audio — APPROVED — 8/10
 
-Stage 3 is approved after successful local generation and manual QC. Narration only: no music or sound effects.
+Stage 3 is approved after successful local generation and manual QC. Narration only; no music or sound effects.
 
 ### Audio engine
 
-- Chatterbox is the approved local TTS engine.
-- The code uses the installed ChatterboxTurboTTS model on the available device.
+- Chatterbox is the approved local TTS engine and uses the installed ChatterboxTurboTTS model on the available device.
 - Do not pass unsupported arguments such as nano=True.
-- The model runs locally; there is no paid TTS API or cloud audio generation.
-- If audio_reference.wav exists in the repo root, it is used as the narrator reference. AUDIO_REFERENCE may override that path.
-- Reference audio conditioning is prepared once at the start of an Audio run and reused for all slides.
+- Audio runs locally; no paid TTS API or cloud audio generation.
+- If audio_reference.wav exists in the repo root, use it as the narrator reference. AUDIO_REFERENCE may override that path.
+- Prepare reference-audio conditioning once at the start of an Audio run and reuse it for every slide.
 - Reference audio is local-only and must not be committed.
 
 ### Delivery and timing
 
-- Generate audio separately for every approved Scriptwriter slide.
+- Generate audio separately for each approved Scriptwriter slide.
 - Keep narrator identity consistent while varying delivery modestly by slide.
-- Slide 1 receives a stronger opening delivery.
-- Final slides receive a small payoff emphasis.
-- Questions/exclamations receive slightly more expression.
-- Numeric/factual slides receive slightly slower pacing.
-- Chatterbox randomness is reseeded per run and slide so Redo Audio produces a genuinely new take.
-- Preserve Scriptwriter words exactly; Audio does not rewrite the story.
+- Slide 1 receives stronger opening delivery; final slides receive a small payoff emphasis.
+- Questions/exclamations get slightly more expression; numeric/factual slides get slightly slower pacing.
+- Reseed Chatterbox randomness per run and slide so Redo Audio produces a genuinely new take.
+- Preserve Scriptwriter words exactly. Audio does not rewrite the story.
 - Add a small natural pause between slides.
 - Use the 65-word Scriptwriter limit as the primary protection for a Short under 30 seconds.
 - If generated narration is only marginally above 30 seconds, apply at most a slight time-stretch before failing.
-- Generate full.wav plus one slide_XX.wav per slide.
-- Local generated files live under generated_audio/ and are not committed.
-- Output paths are derived from script content so Redo Audio replaces the current take rather than creating uncontrolled file growth.
+- Generate full.wav and one slide_XX.wav per slide.
+- Local outputs live under generated_audio/ and are not committed.
+- Derive output paths from script content so Redo Audio replaces the current take instead of creating uncontrolled file growth.
 
-### Audio test flow
+### Audio test flow and current environment
 
 1. User approves the Scriptwriter version.
 2. Dashboard moves to Audio.
@@ -353,36 +372,29 @@ Stage 3 is approved after successful local generation and manual QC. Narration o
 6. Redo Audio regenerates narration without changing Scriptwriter text.
 7. Subtitles remain disabled until Stage 4 is built.
 
-### Current status
-
-- Chatterbox is installed manually in the same existing local project environment.
-- It is intentionally not added to CI's lightweight requirements.txt.
-- Turbo model weights are cached locally after the successful first generation.
-- The Windows Hugging Face symlink warning does not block use.
-- No Hugging Face token is required by the factory.
-- A local startup issue caused by the Perth watermarker dependency was resolved in the environment before Audio approval. No project wrapper or extra factory service was added.
+- Chatterbox is installed manually in the same local project environment and is intentionally not added to lightweight CI requirements.
+- Turbo model weights are cached locally after successful first generation.
+- Windows Hugging Face symlink warning does not block use. No Hugging Face token is required by the factory.
+- A local startup issue caused by the Perth watermarker dependency was resolved in the environment before Audio approval. Do not add a project wrapper or extra factory service for it.
 - Audio is approved at 8/10. Reopen only for a later requirement, quality issue or regression.
-
-## Later stages
-
-Subtitles, Visuals, Renderer and Upload are disabled. Preserve their existing functions and handovers unless explicitly requested.
 
 ## Current files
 
-- PROJECT_CONTEXT.md — current source of truth.
-- topic_fetcher.py — completed Topic Fetcher.
-- scriptwriter.py — source-first, desk-aware Scriptwriter with the channel editorial fingerprint, explicit three-choice editorial-angle selection, selected-angle-authoritative generation, Custom angle support and progressively stricter script redo passes.
-- app.py — Test dashboard through Audio; stage imports remain local; editorial angles are presented before each Scriptwriter generation; selected story_angle is retained through QC and Audio handoff.
-- audio.py — local Chatterbox narration for approved Scriptwriter slides; approved 8/10.
-- tests/test_topic_fetcher.py — Topic Fetcher tests; the raw-GNews-URL test uses a current-time fixture so it cannot expire merely because the calendar date changes.
-- tests/test_scriptwriter.py — Scriptwriter and editorial-angle tests.
-- tests/test_audio.py — Audio dependency-loading and input validation tests.
+- PROJECT_CONTEXT.md — complete source of truth, replaced after each completed project change.
+- topic_fetcher.py — concurrent GNews Topic Fetcher with desk-specific queries, freshness/utility filtering, India cricket phrase grouping and the existing headline handoff.
+- scriptwriter.py — source-first, desk-aware Scriptwriter with the editorial fingerprint, explicit three-choice angle planning, selected-angle-authoritative writing, Custom angle support, and progressively stricter script redo passes.
+- app.py — Test dashboard through Audio. Stage imports are local; editorial angles are presented before each Scriptwriter generation; selected story_angle is retained through QC and Audio handoff.
+- audio.py — local Chatterbox narration for approved Scriptwriter slides.
+- tests/test_topic_fetcher.py — deterministic Topic Fetcher tests. Existing raw-GNews-URL test uses a current-time fixture so it cannot expire merely because the calendar date changes. Step 1 must extend coverage for selected-source resolution and Search More/exclude-seen behaviour.
+- tests/test_scriptwriter.py — Scriptwriter and editorial-angle tests. Multi-desk real-story output review remains outstanding.
+- tests/test_audio.py — Audio dependency-loading and input-validation tests.
 - .github/workflows/test.yml — deterministic CI.
-- requirements.txt — lightweight factory dependencies; Chatterbox is installed manually in the local environment.
+- requirements.txt — lightweight dependencies; Chatterbox is installed manually in the local environment.
 - .gitignore — excludes local Audio outputs and narrator reference audio.
 
-## CI
+## CI contract
 
-CI must not depend on live GNews availability or a minimum current-story count.
-
-Do not merge a red commit.
+- CI checks Python compilation and runs pytest.
+- CI must use deterministic mocks for Topic Fetcher and Scriptwriter source-handling tests; do not require live GNews results or a minimum number of current stories.
+- The current observed CI result is 30 tests passed on 7 October 2026. This is historical baseline evidence, not a claim about a commit made after that run.
+- Do not merge a red commit.
