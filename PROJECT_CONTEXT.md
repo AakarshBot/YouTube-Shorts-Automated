@@ -38,7 +38,7 @@ The dashboard is Test-only through Audio. Live remains disabled until Test appro
 
 Current assessments:
 - Topic Fetcher — 7/10. Step 1 source/repeat-search reliability and Step 2 basic event deduplication/ranking are implemented and CI-verified. Broader discovery after the finite RSS pool and real-world editorial-quality review remain open.
-- Scriptwriter — 6/10. The editorial specification remains locked. Source-resolution recovery, manual-source retries, redo error recovery, QC validation and nine desk-contract tests are being verified together; live Groq-generated editorial output still needs manual review.
+- Scriptwriter — 6/10. The editorial specification remains locked. Source-resolution recovery, manual-source retries, redo error recovery and QC validation are in place; nine desk-contract fixtures are being aligned with the real dashboard handoff. Live Groq-generated editorial output still needs manual review.
 - Audio — approved at 8/10 after successful local generation and manual QC.
 - Subtitles, Visuals, Renderer and Upload — not active in the current Test flow.
 
@@ -117,7 +117,7 @@ Status: STEP 2 COMPLETE. The implementation and regression tests are committed; 
 
 ### Step 3 — Scriptwriter real-story and multi-desk validation
 
-Status: IN PROGRESS. Before asking for local real-story tests, the dashboard recovery and QC paths are being hardened. The earlier schema and nine-desk contract suite passed 48 tests; the readiness fixes below require a new successful Actions run. Scriptwriter remains 6/10 because live generated editorial output has not been manually reviewed.
+Status: IN PROGRESS. Dashboard recovery, source handoff and QC changes passed 53 tests on the previous commit. During final readiness review, I found that several desk fixtures used subcategory names instead of the actual desk values passed by the dashboard; the fixtures and a guard test are being corrected, then CI must pass again before local testing. Scriptwriter remains 6/10 because live generated editorial output has not been manually reviewed.
 
 - Run representative stories from regional cricket, global cricket, niche sports, News/Politics, Technology, Entertainment, Business & Finance, Gaming, and Science & Space through the existing Test workflow.
 - Inspect source evidence, angle choices, generated narration, titles and QC fields—not only schema validity.
@@ -136,7 +136,7 @@ Status: IN PROGRESS. Before asking for local real-story tests, the dashboard rec
 - The dashboard does not automatically rerun angle generation on every Streamlit interaction when a prior result already says `needs_more_sources`. The user can retry with additional URLs, including after a previous manual-source attempt; already-collected URL evidence is not added twice.
 - Script Redo generation errors are shown with the active angle choices so the user can retry, rather than leaving the redo path stuck behind a hidden angle picker.
 - Deterministic QC validation rejects blank title options, missing/non-list title and hashtag fields, malformed slide values, and a needs-more-sources angle result that incorrectly includes choices.
-- Nine deterministic desk-contract fixtures cover regional cricket, global cricket, niche sports, Politics & Policy, AI, Indian Film & OTT, Companies & Deals, Games & Releases, and Space. They check that desk and source evidence reach both model prompts, the chosen angle reaches generation, the angle is retained, and the result passes objective script validation.
+- Nine deterministic desk-contract fixtures cover the exact values the dashboard passes into Scriptwriter: regional cricket, global cricket, niche sports, News (a politics story), Technology (an AI story), Entertainment (an Indian Film & OTT story), Business & Finance, Gaming, and Science & Space. A regression test asserts fixture desk names stay aligned with `DESKS` and the Sports genres. They check that desk and source evidence reach both model prompts, the chosen angle reaches generation, the angle is retained, and the result passes objective script validation.
 - All mocked tests verify routing, prompt assembly and contract validation only. They do **not** prove that live model-generated angles are substantively different or that live narration is factually correct. Real-source retrieval and manual review of generated output remain open. Do not raise the rating or claim editorial approval based on mocked tests alone.
 
 ## Topic Fetcher — implementation contract
@@ -419,7 +419,7 @@ Stage 3 is approved after successful local generation and manual QC. Narration o
 - app.py — Test dashboard through Audio. Stage imports are local; editorial angles are presented before each Scriptwriter generation; selected story_angle is retained through QC and Audio handoff.
 - audio.py — local Chatterbox narration for approved Scriptwriter slides.
 - tests/test_topic_fetcher.py — deterministic Topic Fetcher tests, including multi-batch Search More/exclude-seen coverage, event-deduplication, generic-story preservation, specificity-ranking and publisher-variety tests. The Step 2 run passed with 38 tests before Step 3 tests were added.
-- tests/test_scriptwriter.py — Scriptwriter source-handling, angle/script contract and redo tests; includes resolved publisher URLs, invalid insufficiency angles, QC validation and nine mocked desk-contract fixtures. Live real-story output review remains outstanding.
+- tests/test_scriptwriter.py — Scriptwriter source-handling, angle/script contract and redo tests; includes resolved publisher URLs, invalid insufficiency angles, QC validation, nine mocked desk-contract fixtures and a guard that fixtures use real dashboard desk values. Live real-story output review remains outstanding.
 - tests/test_audio.py — Audio dependency-loading and input-validation tests.
 - .github/workflows/test.yml — deterministic CI.
 - requirements.txt — lightweight dependencies; Chatterbox is installed manually in the local environment.

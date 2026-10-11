@@ -571,7 +571,13 @@ def validate_script(result):
         errors.append("Opening headline must contain exactly 3 or 4 words.")
     if not result.get("story_angle"):
         errors.append("A selected editorial angle is required.")
-    voices = [slide["voiceover"].strip().lower() for slide in slides if isinstance(slide, dict) and slide.get("voiceover")]
+    voices = [
+        slide["voiceover"].strip().lower()
+        for slide in slides
+        if isinstance(slide, dict)
+        and isinstance(slide.get("voiceover"), str)
+        and slide["voiceover"].strip()
+    ]
     if len(set(voices)) < len(voices):
         errors.append("Slides must not be duplicated.")
     titles = result.get("titles")

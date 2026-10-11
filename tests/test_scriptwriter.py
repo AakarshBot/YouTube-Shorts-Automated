@@ -111,6 +111,10 @@ def test_malformed_qc_fields_are_rejected_without_crashing():
     assert "At least two title options are required." in errors
     assert "At least one relevant hashtag is required." in errors
 
+    result = make_ready()
+    result["slides"][0]["voiceover"] = 123
+    assert "Every slide needs spoken narration." in validate_script(result)
+
 
 def test_story_angle_is_required():
     result = make_ready()
@@ -561,48 +565,56 @@ DESK_STORY_CASES = [
         "Mira Sol",
     ),
     (
-        "Politics & Policy",
+        "News",
         "Fictional council revises transit vote",
         "In fictional Northbridge, the council voted 7–2 to fund two late bus routes by shifting money from a lightly used service. The published note says the new routes will connect three hospital shifts with the central station.",
         "The Funding Tradeoff",
         "Northbridge Council",
     ),
     (
-        "AI",
+        "Technology",
         "Fictional AI lab cuts inference cost",
         "Fictional startup Kestrel AI says a smaller retrieval step cut average inference cost by 28% across 500 customer tasks. Its release notes report no change to the base model and list the benchmark limits.",
         "Cheaper Retrieval Step",
         "Kestrel AI",
     ),
     (
-        "Indian Film & OTT",
+        "Entertainment",
         "Fictional drama shifts release strategy",
         "Fictional streamer RaagaPlay will release the drama Dusk Line weekly instead of dropping all six episodes together. The company says its pilot completion rate rose 31% when viewers had a new episode to discuss.",
         "A Weekly Release",
         "RaagaPlay",
     ),
     (
-        "Companies & Deals",
+        "Business & Finance",
         "Fictional retailer changes supply model",
         "Fictional retailer Northstar reported an 18% rise in quarterly revenue after moving regional inventory closer to local warehouses. Its filing attributes most of the change to faster delivery and fewer cancelled orders.",
         "Faster Regional Delivery",
         "Northstar",
     ),
     (
-        "Games & Releases",
+        "Gaming",
         "Fictional game changes beta progression",
         "Fictional studio Ember Forge changed its game's beta progression so new players unlock equipment through short challenges rather than long quests. Test notes show more players finished the first session after the change.",
         "Shorter First Session",
         "Ember Forge",
     ),
     (
-        "Space",
+        "Science & Space",
         "Fictional probe finds buried ice",
         "Fictional probe Kestrel-2 detected a stronger-than-expected radar signal beneath the surface of a polar crater. Mission notes say the instrument cannot yet distinguish water ice from other reflective material.",
         "What The Signal Means",
         "Kestrel-2",
     ),
 ]
+
+
+def test_desk_fixtures_match_the_dashboard_handoff_values():
+    from topic_fetcher import DESKS
+
+    dashboard_values = set(DESKS)
+    dashboard_values.update(DESKS["Sports"])
+    assert {case[0] for case in DESK_STORY_CASES} <= dashboard_values
 
 
 def test_needs_more_sources_schema_allows_empty_angles(monkeypatch):
