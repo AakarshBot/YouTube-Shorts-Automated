@@ -50,7 +50,7 @@ Work on one step at a time. Do not jump ahead or broaden the scope without a con
 
 ### Step 1 — Topic Fetcher reliability: selected-source resolution and Search More
 
-Status: the targeted source-reading and repeated-search changes and deterministic tests are included in this commit; GitHub Actions verification is pending.
+Status: STEP 1 COMPLETE. The implementation and regression tests are committed; the full GitHub Actions workflow passed compilation and all 33 tests.
 
 The scope is limited to selected-source/article-text reliability and successive Search More batches within the currently fetched RSS result pool. No new dependencies, news providers or code wrappers are introduced.
 
@@ -75,15 +75,21 @@ The scope is limited to selected-source/article-text reliability and successive 
 - Do not make CI depend on current GNews results, network availability, or a minimum number of live stories.
 - Preserve the current initial-search speed. URL resolution and article extraction must remain selected-story operations, not bulk Topic Fetcher work.
 
-Step 1 is complete only when:
-1. Tests reproduce the relevant source-resolution and repeated-search behaviour without requiring live network access.
-2. The smallest justified direct implementation change is made. Do not add compatibility layers or unnecessary abstractions.
-3. Test coverage includes a selected Google News URL that remains unresolved, a resolved publisher URL, article-text extraction failure/summary fallback, and exclusion of already-seen URLs in Search More.
-4. The full CI workflow passes.
-5. This context is completely rewritten to describe the actual code and any remaining limitations.
+### Step 1 results — verified
 
-Do not begin Step 2 until Step 1 is reported complete and the user says “yes, continue”.
+The selected-source and Search More reliability changes are implemented and verified:
 
+- `scriptwriter.article_text()` checks the final HTTP response URL. If a stored Google News URL reaches a publisher URL through an HTTP redirect, the selected story is updated to that exact publisher URL, preserving its spelling and query parameters.
+- If the response remains on `news.google.com`, the page content is not accepted as publisher article text, even if it contains enough incidental HTML text to pass the old length check.
+- When article text is unavailable, the allowed headline + GNews-description fallback is labelled `[GNEWS DESCRIPTION FALLBACK — ARTICLE TEXT UNAVAILABLE]`. Both angle planning and script generation are instructed to treat it as limited evidence, not as a complete article, and to ask for more sources when the available evidence cannot support a substantive Short.
+- Topic Fetcher keeps bulk fetching free of per-article resolution work. India cricket retains its 100-result cap on Search More; other searches grow the result cap from 40 based on the already-seen URL count, up to 100. Seen URLs are filtered before selection, so successive batches can advance through the currently available RSS result pool.
+- Regression tests cover an unresolved Google News landing page, redirecting to an exact publisher URL, labelled summary fallback, and successive Search More batches with no duplicate URLs.
+- GitHub Actions passed Python compilation and the full pytest suite: **33 passed in 0.31 seconds**. [Actions run](https://github.com/AakarshBot/YouTube-Shorts-Automated/actions/runs/38168877364).
+- No new dependency, provider, wrapper, or extra service was added.
+
+Known limitation retained for Step 2: the current RSS query path has no explicit page token or offset and the result pool is finite. Search More advances through that pool up to the cap; it does not guarantee unlimited results. Improving query diversity after the current pool is exhausted remains part of Step 2.
+
+Do not begin Step 2 until the user says “yes, continue”.
 ### Step 2 — Topic discovery quality: event duplicates and story prioritisation
 
 After Step 1 is complete and verified:
@@ -189,7 +195,7 @@ The writer must read available sources, understand what happened, use the select
 
 Initial run:
 1. Read the selected source URL and try to obtain readable article text.
-2. If article extraction fails, the GNews description may be used as fallback evidence, but its limited nature must not be mistaken for a full article.
+2. If article extraction fails, the GNews description may be used as fallback evidence. It is labelled `[GNEWS DESCRIPTION FALLBACK — ARTICLE TEXT UNAVAILABLE]` and must not be mistaken for a full article.
 3. Pass collected evidence to the angle planner.
 4. If sufficient, show exactly three angles for human selection.
 5. If insufficient, return needs_more_sources and do not write a thin Short.
@@ -392,8 +398,8 @@ Stage 3 is approved after successful local generation and manual QC. Narration o
 - scriptwriter.py — source-first, desk-aware Scriptwriter with the editorial fingerprint, explicit three-choice angle planning, selected-angle-authoritative writing, Custom angle support, and progressively stricter script redo passes.
 - app.py — Test dashboard through Audio. Stage imports are local; editorial angles are presented before each Scriptwriter generation; selected story_angle is retained through QC and Audio handoff.
 - audio.py — local Chatterbox narration for approved Scriptwriter slides.
-- tests/test_topic_fetcher.py — deterministic Topic Fetcher tests, now including multiple Search More batches against a mocked 100-result feed pool and asserting that already-seen URLs are excluded.
-- tests/test_scriptwriter.py — Scriptwriter and editorial-angle tests, now including an unresolved Google News landing page, a redirect to an exact publisher URL and labelled summary fallback. Multi-desk real-story output review remains outstanding.
+- tests/test_topic_fetcher.py — deterministic Topic Fetcher tests, including multi-batch Search More/exclude-seen coverage using a mocked 100-result pool.
+- tests/test_scriptwriter.py — Scriptwriter and editorial-angle tests, including unresolved Google News landing content, redirection to an exact publisher URL and labelled summary fallback. Multi-desk real-story output review remains outstanding.
 - tests/test_audio.py — Audio dependency-loading and input-validation tests.
 - .github/workflows/test.yml — deterministic CI.
 - requirements.txt — lightweight dependencies; Chatterbox is installed manually in the local environment.
@@ -403,5 +409,5 @@ Stage 3 is approved after successful local generation and manual QC. Narration o
 
 - CI checks Python compilation and runs pytest.
 - CI must use deterministic mocks for Topic Fetcher and Scriptwriter source-handling tests; do not require live GNews results or a minimum number of current stories.
-- The baseline before Step 1 code changes was 30 tests passed on 7 October 2026. Source-handling and repeated-search regression tests are added in this commit; verification for this commit is pending.
+- Step 1 CI verification passed: Python compilation succeeded and 33 tests passed in 0.31 seconds on commit `8172021f3b49431925f21c7e6f43d09c5ce55f7a`. [Run 135](https://github.com/AakarshBot/YouTube-Shorts-Automated/actions/runs/38168877364).
 - Do not merge a red commit.
