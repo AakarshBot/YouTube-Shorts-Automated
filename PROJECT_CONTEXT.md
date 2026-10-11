@@ -37,7 +37,7 @@ Topic Fetcher → Scriptwriter → Audio → Subtitles → Visuals → Renderer 
 The dashboard is Test-only through Audio. Live remains disabled until Test approvals are complete. Subtitles, Visuals, Renderer and Upload remain disabled; preserve their current functions and handovers unless a future approved step explicitly requires a change.
 
 Current assessments:
-- Topic Fetcher — 7/10. Its core implementation exists, but it is reopened for targeted source/repeat-search reliability and discovery-quality work. Do not call it complete until the planned tests and fixes are verified.
+- Topic Fetcher — 7/10. Step 1 source/repeat-search reliability and Step 2 basic event deduplication/ranking are implemented and CI-verified. Broader discovery after the finite RSS pool and real-world editorial-quality review remain open.
 - Scriptwriter — 6/10. Its editorial specification is locked and implemented; representative multi-desk output tests and source-retrieval verification remain outstanding.
 - Audio — approved at 8/10 after successful local generation and manual QC.
 - Subtitles, Visuals, Renderer and Upload — not active in the current Test flow.
@@ -92,20 +92,30 @@ Known limitation retained for Step 2: the current RSS query path has no explicit
 Step 2 is active after the user approved proceeding.
 ### Step 2 — Topic discovery quality: event duplicates and story prioritisation
 
-Status: the implementation and deterministic regression tests are included in this commit; GitHub Actions verification is pending.
+Status: STEP 2 COMPLETE. The implementation and regression tests are committed; the full GitHub Actions workflow passed.
+
+#### Verified implementation
 
 - The Topic Fetcher preserves its existing desk queries, freshness windows, filters, grouping, URL fields and output handoff.
-- Each desk bucket now ranks candidates with a small explainable score combining publication freshness, title specificity, concrete development signals and whether the title includes a number. Scores affect ordering only; no story is rejected solely for lacking one of these signals.
-- Reports of the same event from different publishers are conservatively collapsed using meaningful title-token overlap. A publisher suffix matching the known publisher is ignored for comparison.
-- The duplicate rule requires substantial title overlap; sharing a player, organisation, broad event type or generic wording alone is not enough. Different events about the same person and separate boilerplate appointment stories must remain eligible.
-- After duplicate collapse, close-scoring candidates are ordered with a modest repeat-publisher penalty to improve source variety when selecting from a larger Search More pool.
-- Ranking and deduplication happen within each existing desk/category bucket. The desk layout and output handoff remain unchanged.
-- This adapts the useful event-deduplication and ranking principles in Final-Shorts without copying its larger implementation or adding RapidFuzz or any other dependency.
-- Ranking is for human editorial prioritisation, not a promised viral score. Do not claim heuristics predict virality.
-- Do not reject ordinary stories solely because they lack a dramatic hook. Human selection and Scriptwriter QC remain central.
-- Existing freshness windows continue to apply. Ranking cannot establish whether a recently republished article concerns a genuinely current development.
-- Known limitation retained: the RSS query path has no explicit page token or offset. Search More can only advance through the finite current result pool. Broader query diversity is outside this step.
-- Step 2 is complete only after mocked regression tests and the full GitHub Actions workflow pass; then rewrite this context to record verified results before Step 3.
+- Every desk/category bucket is now passed through a conservative duplicate-event pass and a soft candidate-ordering pass before the existing freshness fallbacks and output limits are applied.
+- Same-event coverage from multiple publishers is collapsed conservatively by meaningful-title-token overlap. A publisher suffix is ignored only when it matches the separately supplied publisher name.
+- The rule requires substantial overlap. Sharing a player, organisation, broad event type or generic boilerplate alone is insufficient. Separate stories about the same player and generic appointment stories remain eligible.
+- Ranking uses an explainable score based on publication freshness, title specificity, concrete development-signal terms and the presence of a number. These are ordering signals only: a story is never discarded solely because it lacks them.
+- After duplicate removal, near-tied candidates receive a modest repeat-publisher penalty to improve publisher variety when choosing from the larger Search More pool.
+- Ranking and semantic deduplication happen within each existing desk/category bucket. This intentionally preserves the current dashboard shape and handoff rather than attempting cross-desk clustering.
+- The implementation uses Python standard-library code only; no RapidFuzz, wrapper, service or runtime dependency was added.
+- Tests cover paraphrased reports of the same event, different events involving the same person, unrelated boilerplate stories, specificity beating a newer generic headline, source suffix handling, publisher variety, and the existing repeated Search More behavior.
+- GitHub Actions passed Python compilation and the full pytest suite: **38 passed in 3.85 seconds**. [Actions run](https://github.com/AakarshBot/YouTube-Shorts-Automated/actions/runs/38169649933).
+
+#### Known limitations
+
+- Ranking is a lightweight heuristic for human editorial prioritisation, not a viral predictor. Its story-signal vocabulary may need adjustment after manual use; it is not a claim that each top-ranked story is objectively best.
+- Event matching uses title-token overlap. It can still miss paraphrases with little shared wording, and unusually similar but unrelated headlines may occasionally be grouped. The conservative threshold and regression tests reduce, but cannot eliminate, these errors.
+- The pass ranks and deduplicates within categories, not across separate desk/category buckets.
+- Search More still uses a finite Google News RSS result pool without an explicit page token or offset. It cannot provide unlimited new results; broader query diversity after pool exhaustion remains future work.
+- Existing publication-time filters remain the main freshness guard. A recent article can still describe an older development.
+
+Do not begin Step 3 until the user says “yes, continue”.
 ### Step 3 — Scriptwriter real-story and multi-desk validation
 
 After Topic Fetcher steps are completed:
@@ -398,7 +408,7 @@ Stage 3 is approved after successful local generation and manual QC. Narration o
 - scriptwriter.py — source-first, desk-aware Scriptwriter with the editorial fingerprint, explicit three-choice angle planning, selected-angle-authoritative writing, Custom angle support, and progressively stricter script redo passes.
 - app.py — Test dashboard through Audio. Stage imports are local; editorial angles are presented before each Scriptwriter generation; selected story_angle is retained through QC and Audio handoff.
 - audio.py — local Chatterbox narration for approved Scriptwriter slides.
-- tests/test_topic_fetcher.py — deterministic Topic Fetcher tests, including multi-batch Search More/exclude-seen coverage plus mocked event-deduplication, generic-story preservation, specificity-ranking and publisher-variety tests. Step 2 CI verification is pending.
+- tests/test_topic_fetcher.py — deterministic Topic Fetcher tests, including multi-batch Search More/exclude-seen coverage, event-deduplication, generic-story preservation, specificity-ranking and publisher-variety tests. Step 2 CI passed with 38 total tests.
 - tests/test_scriptwriter.py — Scriptwriter and editorial-angle tests, including unresolved Google News landing content, redirection to an exact publisher URL and labelled summary fallback. Multi-desk real-story output review remains outstanding.
 - tests/test_audio.py — Audio dependency-loading and input-validation tests.
 - .github/workflows/test.yml — deterministic CI.
@@ -410,5 +420,5 @@ Stage 3 is approved after successful local generation and manual QC. Narration o
 - CI checks Python compilation and runs pytest.
 - CI must use deterministic mocks for Topic Fetcher and Scriptwriter source-handling tests; do not require live GNews results or a minimum number of current stories.
 - Step 1 CI verification passed: Python compilation succeeded and 33 tests passed in 0.31 seconds on commit `8172021f3b49431925f21c7e6f43d09c5ce55f7a`. [Run 135](https://github.com/AakarshBot/YouTube-Shorts-Automated/actions/runs/38168877364).
-- Step 2 implementation and regression tests are on `main`; latest verification remains pending in GitHub Actions.
+- Step 2 CI verification passed: Python compilation succeeded and 38 tests passed in 3.85 seconds on commit `15a3fa00e38ccc0b4fa84d269c8f4176273b61c1`. [Run 137](https://github.com/AakarshBot/YouTube-Shorts-Automated/actions/runs/38169649933).
 - Do not merge a red commit.
