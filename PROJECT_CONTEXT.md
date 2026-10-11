@@ -38,7 +38,7 @@ The dashboard is Test-only through Audio. Live remains disabled until Test appro
 
 Current assessments:
 - Topic Fetcher — 7/10. Step 1 source/repeat-search reliability and Step 2 basic event deduplication/ranking are implemented and CI-verified. Broader discovery after the finite RSS pool and real-world editorial-quality review remain open.
-- Scriptwriter — 6/10. Its editorial specification is locked and implemented; representative multi-desk output tests and source-retrieval verification remain outstanding.
+- Scriptwriter — 6/10. The editorial specification remains locked. Step 3 has deterministic regression coverage for nine desk labels and an insufficient-evidence schema correction; CI validation is pending, and live Groq-generated editorial output still requires manual review.
 - Audio — approved at 8/10 after successful local generation and manual QC.
 - Subtitles, Visuals, Renderer and Upload — not active in the current Test flow.
 
@@ -115,10 +115,9 @@ Status: STEP 2 COMPLETE. The implementation and regression tests are committed; 
 - Search More still uses a finite Google News RSS result pool without an explicit page token or offset. It cannot provide unlimited new results; broader query diversity after pool exhaustion remains future work.
 - Existing publication-time filters remain the main freshness guard. A recent article can still describe an older development.
 
-Do not begin Step 3 until the user says “yes, continue”.
 ### Step 3 — Scriptwriter real-story and multi-desk validation
 
-After Topic Fetcher steps are completed:
+Status: IN PROGRESS. A concrete structured-output schema conflict has been corrected and deterministic prompt/contract tests have been added. The GitHub Actions run must pass before considering this code change verified. Scriptwriter remains 6/10.
 
 - Run representative stories from regional cricket, global cricket, niche sports, News/Politics, Technology, Entertainment, Business & Finance, Gaming, and Science & Space through the existing Test workflow.
 - Inspect source evidence, angle choices, generated narration, titles and QC fields—not only schema validity.
@@ -127,7 +126,14 @@ After Topic Fetcher steps are completed:
 - Confirm inaccessible or thin source material cannot quietly produce a script that implies stronger research than was available.
 - Confirm the completed narration is substantive, accurate, non-repetitive and within the hard format limits.
 - Keep manual QC as the principal editorial safety valve. Do not add a large set of subjective hard-rejection rules, extra judge/critic passes, angle scores, claim graphs, personas, automatic rewrite chains or another editorial framework.
-- Keep Scriptwriter at 6/10 until multiple representative desk tests have been manually reviewed. Update the rating only when the evidence supports it.
+- Keep Scriptwriter at 6/10 until multiple representative desk outputs have been manually reviewed. Update the rating only when the evidence supports it.
+
+#### Step 3 work currently in the repository
+
+- The angle output JSON schema no longer forces `minItems=3` and `maxItems=3` on every status. This removes the conflict with `status=needs_more_sources` requiring an empty `angles` array. Ready outputs still have exactly three angles enforced by `validate_editorial_angles()`.
+- A regression test confirms the structured schema can represent an insufficient-evidence response with an empty angle list.
+- Nine deterministic desk-contract fixtures cover regional cricket, global cricket, niche sports, Politics & Policy, AI, Indian Film & OTT, Companies & Deals, Games & Releases, and Space. Each checks that desk and source evidence reach both model prompts, the chosen angle reaches generation, the angle is retained, and the result passes objective script validation.
+- These fixtures use mocked Groq responses. They verify routing, prompt assembly and contract validation; they do **not** prove that live model-generated angles are substantively different or that live narration is factually correct. Real-source retrieval and manual review of generated output remain open. Do not raise the rating or claim editorial approval based on mocked tests alone.
 
 ## Topic Fetcher — implementation contract
 
@@ -409,7 +415,7 @@ Stage 3 is approved after successful local generation and manual QC. Narration o
 - app.py — Test dashboard through Audio. Stage imports are local; editorial angles are presented before each Scriptwriter generation; selected story_angle is retained through QC and Audio handoff.
 - audio.py — local Chatterbox narration for approved Scriptwriter slides.
 - tests/test_topic_fetcher.py — deterministic Topic Fetcher tests, including multi-batch Search More/exclude-seen coverage, event-deduplication, generic-story preservation, specificity-ranking and publisher-variety tests. Step 2 CI passed with 38 total tests.
-- tests/test_scriptwriter.py — Scriptwriter and editorial-angle tests, including unresolved Google News landing content, redirection to an exact publisher URL and labelled summary fallback. Multi-desk real-story output review remains outstanding.
+- tests/test_scriptwriter.py — Scriptwriter source-handling, angle/script contract and redo tests; includes empty-angle insufficiency schema coverage and nine mocked desk-contract fixtures. Live real-story output review remains outstanding.
 - tests/test_audio.py — Audio dependency-loading and input-validation tests.
 - .github/workflows/test.yml — deterministic CI.
 - requirements.txt — lightweight dependencies; Chatterbox is installed manually in the local environment.
@@ -421,4 +427,5 @@ Stage 3 is approved after successful local generation and manual QC. Narration o
 - CI must use deterministic mocks for Topic Fetcher and Scriptwriter source-handling tests; do not require live GNews results or a minimum number of current stories.
 - Step 1 CI verification passed: Python compilation succeeded and 33 tests passed in 0.31 seconds on commit `8172021f3b49431925f21c7e6f43d09c5ce55f7a`. [Run 135](https://github.com/AakarshBot/YouTube-Shorts-Automated/actions/runs/38168877364).
 - Step 2 CI verification passed: Python compilation succeeded and 38 tests passed in 3.85 seconds on commit `15a3fa00e38ccc0b4fa84d269c8f4176273b61c1`. [Run 137](https://github.com/AakarshBot/YouTube-Shorts-Automated/actions/runs/38169649933).
+- Step 3's angle-schema correction and nine-desk contract tests are in the current proposed commit. Its Actions result is not yet verified; inspect the run before calling the change complete.
 - Do not merge a red commit.

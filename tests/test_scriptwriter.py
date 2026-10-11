@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from scriptwriter import EDITORIAL_FINGERPRINT, MAX_SLIDES, MAX_WORDS, MIN_SLIDES, REDO_GUIDANCE, validate_editorial_angles, validate_script
 
 
@@ -504,3 +506,180 @@ def test_google_news_http_redirect_preserves_exact_publisher_url(monkeypatch):
 
     assert text.startswith("Important publisher article fact.")
     assert story["url"] == publisher_url
+
+
+# Deterministic prompt/contract coverage across the actual desk labels.
+DESK_STORY_CASES = [
+    (
+        "Cricket — India / Pakistan / Sri Lanka / Asia",
+        "Fictional batter changes approach after injury return",
+        "In the fictional Coastal Cup, batter Arin Rao returned after a wrist injury and scored 61 from 38 balls. Coach Leela Sen said a lower backlift helped him handle the new ball.",
+        "Backlift Changed The Return",
+        "Arin Rao",
+    ),
+    (
+        "Cricket — Global",
+        "Fictional captain reshapes bowling plan",
+        "In a fictional international series, captain Noah Vale used spinner Eli Hart for two powerplay overs and took a wicket. The opposing side delayed its attack because the change brought a left-right matchup.",
+        "A Powerplay Matchup",
+        "Noah Vale",
+    ),
+    (
+        "Niche Sports — Global",
+        "Fictional tennis player changes return position",
+        "In a fictional tennis final, Mira Sol moved inside the baseline on second serves and won 71% of return points. Coach Ivo Ren said the position change forced opponents to hit earlier and reduced their angles.",
+        "Inside The Baseline",
+        "Mira Sol",
+    ),
+    (
+        "Politics & Policy",
+        "Fictional council revises transit vote",
+        "In fictional Northbridge, the council voted 7–2 to fund two late bus routes by shifting money from a lightly used service. The published note says the new routes will connect three hospital shifts with the central station.",
+        "The Funding Tradeoff",
+        "Northbridge Council",
+    ),
+    (
+        "AI",
+        "Fictional AI lab cuts inference cost",
+        "Fictional startup Kestrel AI says a smaller retrieval step cut average inference cost by 28% across 500 customer tasks. Its release notes report no change to the base model and list the benchmark limits.",
+        "Cheaper Retrieval Step",
+        "Kestrel AI",
+    ),
+    (
+        "Indian Film & OTT",
+        "Fictional drama shifts release strategy",
+        "Fictional streamer RaagaPlay will release the drama Dusk Line weekly instead of dropping all six episodes together. The company says its pilot completion rate rose 31% when viewers had a new episode to discuss.",
+        "A Weekly Release",
+        "RaagaPlay",
+    ),
+    (
+        "Companies & Deals",
+        "Fictional retailer changes supply model",
+        "Fictional retailer Northstar reported an 18% rise in quarterly revenue after moving regional inventory closer to local warehouses. Its filing attributes most of the change to faster delivery and fewer cancelled orders.",
+        "Faster Regional Delivery",
+        "Northstar",
+    ),
+    (
+        "Games & Releases",
+        "Fictional game changes beta progression",
+        "Fictional studio Ember Forge changed its game's beta progression so new players unlock equipment through short challenges rather than long quests. Test notes show more players finished the first session after the change.",
+        "Shorter First Session",
+        "Ember Forge",
+    ),
+    (
+        "Space",
+        "Fictional probe finds buried ice",
+        "Fictional probe Kestrel-2 detected a stronger-than-expected radar signal beneath the surface of a polar crater. Mission notes say the instrument cannot yet distinguish water ice from other reflective material.",
+        "What The Signal Means",
+        "Kestrel-2",
+    ),
+]
+
+
+def test_needs_more_sources_schema_allows_empty_angles(monkeypatch):
+    import scriptwriter
+
+    monkeypatch.setenv("GROQ_API_KEY", "test-key")
+    captured = {}
+    generated = {
+        "status": "needs_more_sources",
+        "reason": "The feed summary contains no usable supporting detail.",
+        "angles": [],
+    }
+    body = json.dumps({"choices": [{"message": {"content": json.dumps(generated)}}]})
+
+    def fake_urlopen(req, timeout=45):
+        captured["body"] = json.loads(req.data)
+        return _Response(body)
+
+    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
+    result = scriptwriter.suggest_editorial_angles(
+        {"title": "Thin feed headline"},
+        [{
+            "title": "Thin feed headline",
+            "url": "https://example.com/thin",
+            "text": "[GNEWS DESCRIPTION FALLBACK — ARTICLE TEXT UNAVAILABLE]\nThin feed headline. One brief feed description.",
+        }],
+        "Politics & Policy",
+    )
+
+    schema = captured["body"]["response_format"]["json_schema"]["schema"]
+    assert "minItems" not in schema["properties"]["angles"]
+    assert "maxItems" not in schema["properties"]["angles"]
+    assert result == generated
+    assert "an empty angles array" in captured["body"]["messages"][1]["content"]
+
+
+@pytest.mark.parametrize("desk,title,evidence,angle_title,lead", DESK_STORY_CASES)
+def test_scriptwriter_contract_is_desk_aware(monkeypatch, desk, title, evidence, angle_title, lead):
+    import scriptwriter
+
+    monkeypatch.setenv("GROQ_API_KEY", "test-key")
+    captured = []
+    angle_result = {
+        "status": "ready",
+        "reason": "",
+        "angles": [
+            {
+                "title": angle_title,
+                "description": f"Focus on the supported detail behind {title.lower()}.",
+                "evidence_basis": evidence.split(". ")[0] + ".",
+            },
+            {
+                "title": "The Wider Context",
+                "description": "Focus on the broader context provided by the source.",
+                "evidence_basis": evidence.split(". ")[1].rstrip(".") + ".",
+            },
+            {
+                "title": "The Other Factor",
+                "description": "Focus on a different fact in the report.",
+                "evidence_basis": evidence.split(". ")[0] + ".",
+            },
+        ],
+    }
+    first_sentence, second_sentence = evidence.split(". ", 1)
+    script_result = {
+        "status": "ready",
+        "reason": "",
+        "opening_headline": angle_title,
+        "slides": [
+            {"voiceover": f"{lead} made a revealing change."},
+            {"voiceover": first_sentence + "."},
+            {"voiceover": second_sentence},
+            {"voiceover": f"The evidence explains the {angle_title.lower()} focus."},
+        ],
+        "titles": ["The Hidden Change", "What The Detail Changed"],
+        "description": f"A closer look at {title.lower()} and the evidence behind it.",
+        "hashtags": ["#Explainer"],
+        "first_comment": f"What stands out to you about {angle_title.lower()}?",
+    }
+    responses = [
+        json.dumps({"choices": [{"message": {"content": json.dumps(angle_result)}}]}),
+        json.dumps({"choices": [{"message": {"content": json.dumps(script_result)}}]}),
+    ]
+
+    def fake_urlopen(req, timeout=45):
+        payload = json.loads(req.data)
+        captured.append(payload)
+        return _Response(responses[len(captured) - 1])
+
+    monkeypatch.setattr(scriptwriter, "urlopen", fake_urlopen)
+    story = {"title": title, "url": "https://example.com/fixture"}
+    sources = [{"title": title, "url": story["url"], "text": evidence}]
+
+    angles = scriptwriter.suggest_editorial_angles(story, sources, desk)
+    assert scriptwriter.validate_editorial_angles(angles) == []
+    angle = angles["angles"][0]
+    result = scriptwriter.generate_script(story, sources, desk, angle=angle)
+
+    assert scriptwriter.validate_script(result) == []
+    assert result["story_angle"] == angle
+    assert len(captured) == 2
+    assert captured[0]["messages"][0]["content"] == f"You are an experienced editor for the {desk} desk. Source evidence controls factual claims."
+    assert captured[1]["messages"][0]["content"] == f"You are an experienced editor for the {desk} desk. Source evidence controls factual claims."
+    assert desk in captured[0]["messages"][1]["content"]
+    assert desk in captured[1]["messages"][1]["content"]
+    assert evidence in captured[0]["messages"][1]["content"]
+    assert evidence in captured[1]["messages"][1]["content"]
+    assert angle_title in captured[1]["messages"][1]["content"]
+    assert "SELECTED EDITORIAL ANGLE — AUTHORITATIVE" in captured[1]["messages"][1]["content"]

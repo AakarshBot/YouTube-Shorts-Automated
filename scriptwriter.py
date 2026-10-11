@@ -102,8 +102,6 @@ ANGLE_OUTPUT_SCHEMA = {
         "reason": {"type": "string"},
         "angles": {
             "type": "array",
-            "minItems": 3,
-            "maxItems": 3,
             "items": {
                 "type": "object",
                 "properties": {
